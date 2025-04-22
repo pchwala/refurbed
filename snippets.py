@@ -4,7 +4,6 @@ import json
 from datetime import datetime, timedelta
 
 import gspread
-from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 
 # === Google Sheets Setup ===
@@ -51,11 +50,10 @@ payload = {
     },
     "pagination": {
     "limit": 100,
-    "starting_after": r_last_id
     },
     "sort":{
         "field": "id",
-        "order": "ASC"
+        "order": "DESC"
     }
 
 }
@@ -75,7 +73,7 @@ except Exception as e:
 
 
 sheet_header = [
-    "checkbox",
+    "",
     "order_id", "r_state",
     "item_sku", "r_country_code", "r_total_charged", "r_currency_code", "vat",
     "notatki", "magazyn", "r_item_name",
@@ -94,7 +92,7 @@ for order in orders:
     item = items[0] if items else {} # get first element for test purpose
 
     row = [
-        "FALSE",
+        #order.get("id", ""),
         "",
         order.get("state", ""),
         item.get("sku", ""),
@@ -113,44 +111,3 @@ for order in orders:
     r_last_id = order.get("id", "")
 
     sheet_rows.append(row)
-
-test_row = [
-        "FALSE",
-        "",
-        "NEW",
-        "sku",
-        "DE",
-        "100.00",
-        "EUR",
-        "",
-        "",
-        "",
-        "name",
-        "email",
-        "first_name",
-        "family_name",
-        "phone"
-
-    ]
-sheet_rows.append(test_row)
-
-
-# === Write to sheet ===
-orders_sheet.append_rows(sheet_rows, value_input_option="USER_ENTERED")
-config_sheet.update_acell("A2", r_last_id)
-
-# Get the row number of the newly added row
-last_row = len(orders_sheet.get_all_values())
-
-# Create checkbox rule (TRUE/FALSE)
-checkbox_rule = DataValidationRule(
-    condition=BooleanCondition('BOOLEAN'),
-    showCustomUi=True
-)
-
-# Apply to range
-cell_range = f"A2:A{last_row}"
-set_data_validation_for_cell_range(orders_sheet, cell_range, checkbox_rule)
-
-
-print(f"Wrote {len(sheet_rows)} rows to Google Sheets.")
