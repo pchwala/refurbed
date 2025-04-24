@@ -41,7 +41,7 @@ headers = {
 config = config_sheet.get_all_values()
 r_last_id = config[1][0]
 
-# Fetch orders starting after last fetched id ASCENDING
+# Fetch 100 newest orders
 payload = {
     "filter": {
         "state": {
@@ -51,11 +51,11 @@ payload = {
     },
     "pagination": {
     "limit": 100,
-    "starting_after": r_last_id
+    #"starting_after": r_last_id
     },
     "sort":{
         "field": "id",
-        "order": "ASC"
+        "order": "DESC"
     }
 
 }
