@@ -1,0 +1,3 @@
+curl -X POST https://fetch-860977612313.europe-central2.run.app \
+  -H "Content-Type: application/json" \
+  -d '{}'

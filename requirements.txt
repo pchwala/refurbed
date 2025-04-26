@@ -2,3 +2,5 @@ Flask
 gspread
 oauth2client
 gunicorn
+requests
+gspread-formatting
