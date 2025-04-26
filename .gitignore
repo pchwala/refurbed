@@ -1,2 +1,9 @@
 # Fetched data and credentials
 *.json
+
+#Key files
+keys/
+
+# Local configuration
+.git/
+.venv/
