@@ -1,8 +1,12 @@
-# Fetched data and credentials
-*.json
-
 #Key files
 keys/
+
+# Log files
+backups/
+
+# Temporary files
+*.json
+*.txt
 
 # Local configuration
 .git/

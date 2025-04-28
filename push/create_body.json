@@ -1,0 +1,65 @@
+{
+  "params": {
+    "orders": [
+      {
+        "shopId": 1,
+        "stockId": 2,
+        "apiFlag": "apiFlag",
+        "orderPaymentType": "prepaid",
+        "currencyId": "EUR",
+        "clientWithoutAccountData": {
+          "clientFirstName": "Janusz",
+          "clientLastName": "Testowy",
+          "clientFirm": "",
+          "clientNip": "",
+          "clientStreet": "Drosselstieg",
+          "clientZipCode": "10318",
+          "clientCity": "Berlin",
+          "clientCountry": "Niemcy",
+          "clientEmail": "janusz@testowy.com",
+          "clientPhone1": "500100100",
+          "langId": "DE"
+        },
+        "affiliateId": 1,
+        "courierId": 100191,
+        "pickupPointId": 0,
+        "deliveryCost": 0,
+        "clientDeliveryAddress": {
+          "clientDeliveryAddressFirm": "",
+          "clientDeliveryAddressType": "client",
+          "clientDeliveryAddressPickupPointInternalId": 0,
+          "clientDeliveryAddressFirstName": "Janusz",
+          "clientDeliveryAddressLastName": "Testowy",
+          "clientDeliveryAddressStreet": "Drosselstieg",
+          "clientDeliveryAddressZipCode": "10318",
+          "clientDeliveryAddressCity": "Berlin",
+          "clientDeliveryAddressCountry": "Niemcy",
+          "clientDeliveryAddressCountryId": "de",
+          "clientDeliveryAddressPhone1": "500100100",
+          "clientDeliveryAddressPhone2": "",
+          "clientDeliveryAddressProvinceId": "",
+          "clientDeliveryAddressProvince": ""
+        },
+        "products": [
+          {
+            "productId": 2,
+            "productQuantity": 1,
+            "stockId": 2,
+            "productRetailPrice": 100
+          }
+        ],
+        "orderRebateValue": 0,
+        "orderOperatorLogin": "refurbed",
+        "ignoreBridge": true,
+        "settings": {
+          "settingSendMail": true,
+          "settingSendSMS": true
+        },
+        "orderSettledAtPrice": "orderSettledAtPrice",
+        "billingCurrency": "EUR",
+        "billingCurrencyRate": 4.2818,
+        "purchaseDate": "2025-04-26"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+orderStatus:
+nieobsluzone = new
+realizowane = on_order
+oczekuje na wplate = payment_waiting
+anulowane przez klienta = canceled
+wyslane = finished
+

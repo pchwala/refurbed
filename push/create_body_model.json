@@ -1,0 +1,95 @@
+{
+    "params": {
+      "orders": [
+        {
+          "orderType": "orderType",
+          "shopId": 1,
+          "stockId": 1,
+          "orderPaymentType": "orderPaymentType",
+          "currencyId": "currencyId",
+          "clientWithoutAccount": "clientWithoutAccount",
+          "clientWithoutAccountData": {
+            "clientFirstName": "clientFirstName",
+            "clientLastName": "clientLastName",
+            "clientFirm": "clientFirm",
+            "clientNip": "clientNip",
+            "clientStreet": "clientStreet",
+            "clientZipCode": "clientZipCode",
+            "clientCity": "clientCity",
+            "clientCountry": "clientCountry",
+            "clientEmail": "clientEmail",
+            "clientPhone1": "clientPhone1",
+            "clientPhone2": "clientPhone2",
+            "langId": "langId"
+          },
+          "clientLogin": "clientLogin",
+          "clientNoteToOrder": "clientNoteToOrder",
+          "clientNoteToCourier": "clientNoteToCourier",
+          "affiliateId": 1,
+          "courierId": 1,
+          "pickupPointId": "pickupPointId",
+          "deliveryCost": 20.12,
+          "clientDeliveryAddress": {
+            "clientDeliveryAddressFirstName": "clientDeliveryAddressFirstName",
+            "clientDeliveryAddressLastName": "clientDeliveryAddressLastName",
+            "clientDeliveryAddressAdditional": "clientDeliveryAddressAdditional",
+            "clientDeliveryAddressStreet": "clientDeliveryAddressStreet",
+            "clientDeliveryAddressZipCode": "clientDeliveryAddressZipCode",
+            "clientDeliveryAddressCity": "clientDeliveryAddressCity",
+            "clientDeliveryAddressCountry": "clientDeliveryAddressCountry",
+            "clientDeliveryAddressPhone": "clientDeliveryAddressPhone"
+          },
+          "payerAddress": {
+            "payerAddressId": 1,
+            "payerAddressFirstName": "payerAddressFirstName",
+            "payerAddressLastName": "payerAddressLastName",
+            "payerAddressFirm": "payerAddressFirm",
+            "payerAddressNip": "payerAddressNip",
+            "payerAddressStreet": "payerAddressStreet",
+            "payerAddressZipCode": "payerAddressZipCode",
+            "payerAddressCity": "payerAddressCity",
+            "payerAddressCountryId": "payerAddressCountryId",
+            "payerAddressPhone": "payerAddressPhone"
+          },
+          "products": [
+            {
+              "productId": 1,
+              "sizeId": "sizeId",
+              "productSizeCodeExternal": "productSizeCodeExternal",
+              "stockId": 1,
+              "productQuantity": 20.12,
+              "productRetailPrice": 20.12,
+              "productFree": true,
+              "forceLoyaltyPoints": 20.12,
+              "productVat": 20.12,
+              "productVatFree": "productVatFree",
+              "discountCode": {
+                "name": "name"
+              },
+              "remarksToProduct": "remarksToProduct",
+              "productBundleItems": [
+                {
+                  "productId": 1,
+                  "sizeId": "sizeId",
+                  "sizePanelName": "sizePanelName",
+                  "productIndex": "productIndex"
+                }
+              ]
+            }
+          ],
+          "orderRebateValue": 20.12,
+          "orderOperatorLogin": "orderOperatorLogin",
+          "ignoreBridge": true,
+          "settings": {
+            "settingSendMail": true,
+            "settingSendSMS": true
+          },
+          "orderSettledAtPrice": "orderSettledAtPrice",
+          "clientRequestInvoice": "clientRequestInvoice",
+          "billingCurrency": "billingCurrency",
+          "billingCurrencyRate": 20.12,
+          "purchaseDate": "purchaseDate"
+        }
+      ]
+    }
+  }

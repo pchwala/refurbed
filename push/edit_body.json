@@ -1,0 +1,27 @@
+{
+    "params": {
+      "orders": [
+        {
+          "orderSerialNumber": 1,
+          "apiFlag": "apiFlag",
+          "clientNoteToOrder": "clientNoteToOrder",
+          "orderNote": "orderNote",
+          "orderPaymentType": "orderPaymentType",
+          "orderSettledAtPrice": "orderSettledAtPrice",
+          "ignoreBridge": true,
+          "products": [
+          {
+            "productId": 2,
+            "sizeID": "uniw",
+            "productSizeCodeExternal": "X123123123",
+            "remarksToProduct": "remarksToProduct2"
+          }
+        ],
+          "settings": {
+            "dontSendMail": "dontSendMail",
+            "dontSendSMS": "dontSendSMS"
+          }
+        }
+      ]
+    }
+  }
