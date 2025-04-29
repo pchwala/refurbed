@@ -150,7 +150,7 @@ class IdoSellAPI:
 
 
 
-temp_id = "339234"
+temp_id = "339335"
 
 ids_api = IdoSellAPI()
 #order_history = ids_api.get_order_history(order_id="339071")
@@ -159,9 +159,9 @@ ids_api = IdoSellAPI()
 #order_data = ids_api.get_order(order_id=temp_id)
 #print(order_data)
 
-row = ids_api.parse_sheet_row(201)
+row = ids_api.parse_sheet_row(85)
 
-ret = ids_api.edit_order(order_id=temp_id, order_status='payment_waiting', order_details=row)
+ret = ids_api.edit_order(order_id=temp_id, order_status='new', order_details=row)
 print(ret)
 
 #ret = ids_api.create_order()

@@ -42,10 +42,10 @@
         },
         "products": [
           {
-            "productId": 2,
+            "productId": 26936,
             "productQuantity": 1,
             "stockId": 2,
-            "productRetailPrice": 100
+            "productRetailPrice": 295.99
           }
         ],
         "orderRebateValue": 0,

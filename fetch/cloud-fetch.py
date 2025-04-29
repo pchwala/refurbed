@@ -59,7 +59,7 @@ class CloudRefurbedAPI:
         }
     
     def payload_all(self, limit=100):
-        """Create payload to fetch last 100 orders."""
+        """Create payload to fetch last n orders."""
         return {
             "filter": {
                 "state": {
@@ -80,7 +80,7 @@ class CloudRefurbedAPI:
         sheet_header = [
             "checkbox",
             "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
-            "id_zestawu", "klasa", "magazyn", "notatki", "item_sku", "r_item_name",
+            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "notatki", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
 
@@ -91,16 +91,24 @@ class CloudRefurbedAPI:
             shipping = order.get("shipping_address", {})
             items = order.get("items", [])
             item = items[0] if items else {}
+            
+            # Extract offer_grading from offer_data if available
+            klasa = ""
+            if item and "offer_data" in item:
+                offer_data = item.get("offer_data", {})
+                klasa = offer_data.get("offer_grading", "")
 
             row = [
-                "FALSE",
+                "FALSE",  # checkbox
                 order.get("state", ""),
                 shipping.get("country_code", ""),
                 order.get("settlement_currency_code", ""),
                 order.get("settlement_total_charged", ""),
                 "",  # vat
                 "",  # id_zestawu
-                "",  # klasa
+                klasa,  # klasa - now contains offer_grading
+                "FALSE",  # klaw
+                "FALSE",  # bat
                 "",  # magazyn
                 "",  # notatki
                 item.get("sku", ""),
@@ -134,10 +142,11 @@ class CloudRefurbedAPI:
             showCustomUi=True
         )
 
-        # Apply to range
+        # Apply to range for all checkbox columns (A for checkbox, I for klaw, J for bat)
         if sheet_rows:
-            cell_range = f"A2:A{last_row}"
-            set_data_validation_for_cell_range(self.orders_sheet, cell_range, checkbox_rule)
+            checkbox_ranges = [f"A2:A{last_row}", f"I2:I{last_row}", f"J2:J{last_row}"]
+            for cell_range in checkbox_ranges:
+                set_data_validation_for_cell_range(self.orders_sheet, cell_range, checkbox_rule)
 
         print(f"Successfully wrote {len(sheet_rows)} rows to Google Sheets.")
 
@@ -249,6 +258,44 @@ class CloudRefurbedAPI:
             print(f"Error in update_states: {str(e)}")
             return False
 
+    def fetch_latest_orders(self, update=False, n=100):
+        """Fetches the latest n orders regardless of the last fetched order ID."""
+        try:
+            # === Refurbed API Setup ===
+            r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
+            
+            # Create payload for latest n orders
+            payload = self.payload_all(limit=n)
+        
+            # Get, decode and save response
+            response = requests.post(r_URL, headers=self.headers, json=payload)
+        
+            if response.status_code != 200:
+                print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+                return False
+        
+            response_data = response.json()
+            orders = response_data.get('orders', [])
+        
+            if not orders:
+                print("No orders to process")
+                return True
+            
+            # Process orders
+            sheet_rows, last_id = self.process_orders(orders)
+            
+            # Update sheets - but don't update the last_id in config
+            # since this is just fetching the latest rather than continuing from previous
+            if update:
+                self.update_sheets(sheet_rows, "")
+            
+            print(f"Fetched latest {len(orders)} orders")
+            return True
+            
+        except Exception as e:
+            print(f"Error in fetch_latest_orders: {str(e)}")
+            return False
+
 def fetch_orders_task():
     """Task to fetch orders that runs on a schedule"""
     try:
@@ -277,6 +324,21 @@ def update_states_endpoint():
             return jsonify({"message": "Order states updated successfully."}), 200
         else:
             return jsonify({"error": "Failed to update order states."}), 500
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+@app.route("/latest-orders", methods=["POST"])
+def latest_orders_endpoint():
+    try:
+        n = request.json.get("limit", 100) if request.is_json else 100
+        update = request.json.get("update", False) if request.is_json else False
+        
+        api = CloudRefurbedAPI()
+        if api.fetch_latest_orders(update=update, n=n):
+            return jsonify({"message": f"Latest {n} orders fetched successfully."}), 200
+        else:
+            return jsonify({"error": "Failed to fetch latest orders."}), 500
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500

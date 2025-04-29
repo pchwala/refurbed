@@ -5,6 +5,8 @@ import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 
+import time
+
 class RefurbedAPI:
     def __init__(self):
         # === Google Sheets Setup ===
@@ -59,8 +61,8 @@ class RefurbedAPI:
         }
     
 
-    def payload_all(self):
-        # Fetch last 100 orders
+    def payload_all(self, limit=100):
+        # Fetch last n orders
         return {
             "filter": {
                 "state": {
@@ -69,7 +71,7 @@ class RefurbedAPI:
                 }
             },
             "pagination": {
-                "limit": 100,
+                "limit": limit,
             },
             "sort": {
                 "field": "id",
@@ -80,7 +82,7 @@ class RefurbedAPI:
         
     def save_backup(self, orders):
         # Save fetched orders to a JSON file for backup/logging purposes
-        timestamp = int(os.path.getmtime('./keys/tokens.json'))  # Use token file timestamp as reference
+        timestamp = int(time.time())  # Use current time as timestamp
         backup_folder = './backups'
         os.makedirs(backup_folder, exist_ok=True)
 
@@ -95,7 +97,7 @@ class RefurbedAPI:
         sheet_header = [
             "checkbox",
             "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
-            "id_zestawu", "klasa", "magazyn", "notatki", "item_sku", "r_item_name",
+            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "notatki", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
 
@@ -106,16 +108,24 @@ class RefurbedAPI:
             shipping = order.get("shipping_address", {})
             items = order.get("items", [])
             item = items[0] if items else {}
+            
+            # Extract offer_grading from offer_data if available
+            klasa = ""
+            if item and "offer_data" in item:
+                offer_data = item.get("offer_data", {})
+                klasa = offer_data.get("offer_grading", "")
 
             row = [
-                "FALSE",
+                "FALSE",  # checkbox
                 order.get("state", ""),
                 shipping.get("country_code", ""),
                 order.get("settlement_currency_code", ""),
                 order.get("settlement_total_charged", ""),
                 "",  # vat
                 "",  # id_zestawu
-                "",  # klasa
+                klasa,  # klasa - now contains offer_grading
+                "FALSE",  # klaw - repositioned
+                "FALSE",  # bat - repositioned
                 "",  # magazyn
                 "",  # notatki
                 item.get("sku", ""),
@@ -149,10 +159,11 @@ class RefurbedAPI:
             showCustomUi=True
         )
 
-        # Apply to range
+        # Apply to range for all checkbox columns (A for checkbox, I for klaw, J for bat)
         if sheet_rows:
-            cell_range = f"A2:A{last_row}"
-            set_data_validation_for_cell_range(self.orders_sheet, cell_range, checkbox_rule)
+            checkbox_ranges = [f"A2:A{last_row}", f"I2:I{last_row}", f"J2:J{last_row}"]
+            for cell_range in checkbox_ranges:
+                set_data_validation_for_cell_range(self.orders_sheet, cell_range, checkbox_rule)
 
         print(f"Successfully wrote {len(sheet_rows)} rows to Google Sheets.")
 
@@ -185,6 +196,38 @@ class RefurbedAPI:
         
         # Update sheets
         self.update_sheets(sheet_rows, last_id)
+
+
+    def fetch_latest_orders(self, update=False, n=100):
+        """Fetches the latest 100 orders regardless of the last fetched order ID."""
+        # === Refurbed API Setup ===
+        r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
+        
+        # Create payload for latest n orders
+        payload = self.payload_all(limit=n)
+    
+        # Get, decode and save response
+        response = requests.post(r_URL, headers=self.headers, json=payload)
+    
+        if response.status_code != 200:
+            print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+            return
+    
+        response_data = response.json()
+        orders = response_data.get('orders', [])
+    
+        # Save backup
+        self.save_backup(orders)
+        
+        # Process orders
+        sheet_rows, last_id = self.process_orders(orders)
+        
+        # Update sheets - but don't update the last_id in config
+        # since this is just fetching the latest rather than continuing from previous
+        if update:
+            self.update_sheets(sheet_rows, "")
+        
+        print(f"Fetched latest {len(orders)} orders")
 
 
     def update_order_states(self, orders):
@@ -255,6 +298,7 @@ class RefurbedAPI:
 
 if __name__ == "__main__":
     refurbed_api = RefurbedAPI()
-    refurbed_api.fetch_orders()
 
+    #refurbed_api.fetch_orders()
     #refurbed_api.update_states()
+    refurbed_api.fetch_latest_orders(update=True, n=40)
