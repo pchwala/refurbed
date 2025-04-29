@@ -69,9 +69,8 @@ class IdoSellAPI:
         # Define the sheet header structure
         sheet_header = [
             "checkbox",
-            "order_id", "r_state",
-            "item_sku", "r_country_code", "r_total_charged", "r_currency_code", "vat",
-            "notatki", "magazyn", "r_item_name",
+            "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
+            "id_zestawu", "klasa", "magazyn", "notatki", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
         

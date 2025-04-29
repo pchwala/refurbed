@@ -94,9 +94,8 @@ class RefurbedAPI:
     def process_orders(self, orders):
         sheet_header = [
             "checkbox",
-            "order_id", "r_state",
-            "item_sku", "r_country_code", "r_total_charged", "r_currency_code", "vat",
-            "notatki", "magazyn", "r_item_name",
+            "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
+            "id_zestawu", "klasa", "magazyn", "notatki", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
 
@@ -110,15 +109,16 @@ class RefurbedAPI:
 
             row = [
                 "FALSE",
-                "",
                 order.get("state", ""),
-                item.get("sku", ""),
                 shipping.get("country_code", ""),
-                order.get("settlement_total_charged", ""),
                 order.get("settlement_currency_code", ""),
-                "",
-                "",
-                "",
+                order.get("settlement_total_charged", ""),
+                "",  # vat
+                "",  # id_zestawu
+                "",  # klasa
+                "",  # magazyn
+                "",  # notatki
+                item.get("sku", ""),
                 item.get("name", ""),
                 order.get("customer_email", ""),
                 shipping.get("first_name", ""),
@@ -255,6 +255,6 @@ class RefurbedAPI:
 
 if __name__ == "__main__":
     refurbed_api = RefurbedAPI()
-    #refurbed_api.fetch_orders()
+    refurbed_api.fetch_orders()
 
-    refurbed_api.update_states()
+    #refurbed_api.update_states()
