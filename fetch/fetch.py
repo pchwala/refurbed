@@ -34,6 +34,37 @@ class RefurbedAPI:
         self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
         self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
 
+        # VAT rates for EU countries
+        self.vat_rates = {
+            "AT": 20,  # Austria
+            "BE": 21,  # Belgia
+            "BG": 20,  # Bulgaria
+            "HR": 25,  # Chorwacja
+            "CY": 19,  # Cypr
+            "CZ": 21,  # Czechy
+            "DK": 25,  # Dania
+            "EE": 22,  # Estonia
+            "FI": 25.5, # Finlandia
+            "FR": 20,  # Francja
+            "GR": 24,  # Grecja
+            "DE": 19,  # Niemcy
+            "ES": 21,  # Hiszpania
+            "NL": 21,  # Holandia
+            "IE": 23,  # Irlandia
+            "LU": 17,  # Luksemburg
+            "LT": 21,  # Litwa
+            "LV": 21,  # Łotwa
+            "MT": 18,  # Malta
+            "PL": 23,  # Polska
+            "PT": 23,  # Portugalia
+            "RO": 19,  # Rumunia
+            "SK": 23,  # Słowacja
+            "SI": 22,  # Słowenia
+            "SE": 25,  # Szwecja
+            "HU": 27,  # Węgry
+            "IT": 22   # Włochy
+        }
+
 
     def get_last_order_id(self):
         # Read last fetched order id from Config Sheet
@@ -109,6 +140,34 @@ class RefurbedAPI:
             items = order.get("items", [])
             item = items[0] if items else {}
             
+            country_code = shipping.get("country_code", "")
+            
+            # Calculate VAT value based on country code, VAT number, and if its iphone or not
+            vat_value = 0
+            invoice_address = order.get("invoice_address", {})
+            vat_number = invoice_address.get("company_vatin", "")
+            item_name = item.get("name", "")
+            # Check if the item is an iPhone (case insensitive)
+            is_iphone = "iphone" in item_name.lower() if item_name else False
+
+            """
+            Cytujac MB:
+            stawka vat powinna ustawiać się automatycznie w zależności od kodu kraju.
+            * Dla laptopów to będzie:
+            - dla zamówień indywidualnych stawka vat obowiązująca w danym kraju
+            - dla zamówień biznesowych z NIP - VAT 0 (wyjątek - zamówienia składane z Polski, tu nie będzie vat 0, tylko zawsze 23% vat)
+            * Dla telefonów - zawsze vat marża
+            """
+            if is_iphone is False:
+                if country_code in self.vat_rates:
+                    if vat_number:
+                        if country_code == "PL":
+                            vat_value = 23
+                        else:
+                            vat_value = 0
+                    else:
+                        vat_value = self.vat_rates.get(country_code, "")
+            
             # Extract offer_grading from offer_data if available
             klasa = ""
             if item and "offer_data" in item:
@@ -118,10 +177,10 @@ class RefurbedAPI:
             row = [
                 "FALSE",  # checkbox
                 order.get("state", ""),
-                shipping.get("country_code", ""),
+                country_code,
                 order.get("settlement_currency_code", ""),
                 order.get("settlement_total_charged", ""),
-                "",  # vat
+                vat_value,
                 "",  # id_zestawu
                 klasa,  # klasa - now contains offer_grading
                 "FALSE",  # klaw - repositioned
@@ -129,7 +188,7 @@ class RefurbedAPI:
                 "",  # magazyn
                 "",  # notatki
                 item.get("sku", ""),
-                item.get("name", ""),
+                item_name,
                 order.get("customer_email", ""),
                 shipping.get("first_name", ""),
                 shipping.get("family_name", ""),
@@ -299,6 +358,6 @@ class RefurbedAPI:
 if __name__ == "__main__":
     refurbed_api = RefurbedAPI()
 
-    #refurbed_api.fetch_orders()
+    refurbed_api.fetch_orders()
     #refurbed_api.update_states()
-    refurbed_api.fetch_latest_orders(update=True, n=40)
+    #refurbed_api.fetch_latest_orders(update=True, n=40)
