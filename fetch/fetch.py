@@ -173,6 +173,8 @@ class RefurbedAPI:
             if item and "offer_data" in item:
                 offer_data = item.get("offer_data", {})
                 klasa = offer_data.get("offer_grading", "")
+                # Check if battery has to be replaced
+                battery_replace = "TRUE" if offer_data.get("battery_condition", "") == "NEW" else "FALSE"
 
             row = [
                 "FALSE",  # checkbox
@@ -183,8 +185,8 @@ class RefurbedAPI:
                 vat_value,
                 "",  # id_zestawu
                 klasa,  # klasa - now contains offer_grading
-                "FALSE",  # klaw - repositioned
-                "FALSE",  # bat - repositioned
+                "FALSE",  # klaw 
+                battery_replace,  # bat 
                 "",  # magazyn
                 "",  # notatki
                 item.get("sku", ""),
@@ -358,6 +360,6 @@ class RefurbedAPI:
 if __name__ == "__main__":
     refurbed_api = RefurbedAPI()
 
-    refurbed_api.fetch_orders()
+    #refurbed_api.fetch_orders()
     #refurbed_api.update_states()
-    #refurbed_api.fetch_latest_orders(update=True, n=40)
+    refurbed_api.fetch_latest_orders(update=True, n=100)
