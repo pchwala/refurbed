@@ -77,6 +77,26 @@ class RefurbedAPI:
             }
         }
     
+    def payload_selectecd(self, order_ids):
+        # Fetch selected orders
+        return {
+            "filter": {
+                "state": {
+                    "none_of": ["RETURNED", "CANCELLED"]
+                },
+                "id": {
+                    "any_of": order_ids
+                }
+            },
+            "pagination": {
+                "limit": 100,
+            },
+            "sort": {
+                "field": "id",
+                "order": "DESC"
+            }
+        }
+
         
     def save_backup(self, orders):
         # Save fetched orders to a JSON file for backup/logging purposes
@@ -89,81 +109,6 @@ class RefurbedAPI:
             json.dump(orders, f, indent=2)
             
         print(f"Saved {len(orders)} orders to {backup_file}")
-        
-
-    def process_orders(self, orders):
-        sheet_header = [
-            "checkbox",
-            "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
-            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "notatki", "item_sku", "r_item_name",
-            "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
-        ]
-
-        sheet_rows = []
-        last_id = ""
-
-        for order in orders:
-            shipping = order.get("shipping_address", {})
-            items = order.get("items", [])
-            item = items[0] if items else {}
-            
-            # Extract offer_grading from offer_data if available
-            klasa = ""
-            if item and "offer_data" in item:
-                offer_data = item.get("offer_data", {})
-                klasa = offer_data.get("offer_grading", "")
-
-            row = [
-                "FALSE",  # checkbox
-                order.get("state", ""),
-                shipping.get("country_code", ""),
-                order.get("settlement_currency_code", ""),
-                order.get("settlement_total_charged", ""),
-                "",  # vat
-                "",  # id_zestawu
-                klasa,  # klasa - now contains offer_grading
-                "FALSE",  # klaw - repositioned
-                "FALSE",  # bat - repositioned
-                "",  # magazyn
-                "",  # notatki
-                item.get("sku", ""),
-                item.get("name", ""),
-                order.get("customer_email", ""),
-                shipping.get("first_name", ""),
-                shipping.get("family_name", ""),
-                shipping.get("phone_number", ""),
-                order.get("id", "")
-            ]
-            last_id = order.get("id", "")
-            print(f"Fetched order ID: {last_id}")
-
-            sheet_rows.append(row)
-            
-        return sheet_rows, last_id
-    
-
-    def update_sheets(self, sheet_rows, last_id):
-        # === Write to sheet ===
-        self.orders_sheet.append_rows(sheet_rows, value_input_option="USER_ENTERED")
-        if last_id != '':
-            self.config_sheet.update_acell("A2", last_id)
-
-        # Get the row number of the newly added row
-        last_row = len(self.orders_sheet.get_all_values())
-
-        # Create checkbox rule (TRUE/FALSE)
-        checkbox_rule = DataValidationRule(
-            condition=BooleanCondition('BOOLEAN'),
-            showCustomUi=True
-        )
-
-        # Apply to range for all checkbox columns (A for checkbox, I for klaw, J for bat)
-        if sheet_rows:
-            checkbox_ranges = [f"A2:A{last_row}", f"I2:I{last_row}", f"J2:J{last_row}"]
-            for cell_range in checkbox_ranges:
-                set_data_validation_for_cell_range(self.orders_sheet, cell_range, checkbox_rule)
-
-        print(f"Successfully wrote {len(sheet_rows)} rows to Google Sheets.")
 
 
     def fetch_orders(self):
@@ -188,12 +133,39 @@ class RefurbedAPI:
 
         # Save backup
         self.save_backup(orders)
+    
+        # Pass response
+
+
+    def fetch_selected_orders(self, order_ids):
+        """Fetches specific orders by their IDs.
         
-        # Process orders
-        sheet_rows, last_id = self.process_orders(orders)
+        Args:
+            order_ids (list): List of order IDs to fetch
         
-        # Update sheets
-        self.update_sheets(sheet_rows, last_id)
+        Returns:
+            list: The fetched order data
+        """
+        # === Refurbed API Setup ===
+        r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
+        
+        # Create payload for specific orders
+        payload = self.payload_selectecd(order_ids)
+    
+        # Get, decode and save response
+        response = requests.post(r_URL, headers=self.headers, json=payload)
+    
+        if response.status_code != 200:
+            print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+            return []
+    
+        response_data = response.json()
+        orders = response_data.get('orders', [])
+    
+        # Save backup
+        self.save_backup(orders)
+        
+        # Pass response
 
 
     def fetch_latest_orders(self, update=False, n=100):
@@ -270,6 +242,7 @@ class RefurbedAPI:
         else:
             print("No orders found to update")
 
+
     def update_states(self):
         # === Refurbed API Setup ===
         r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
@@ -299,4 +272,7 @@ if __name__ == "__main__":
 
     #refurbed_api.fetch_orders()
     #refurbed_api.update_states()
-    refurbed_api.fetch_latest_orders(update=True, n=100)
+    #refurbed_api.fetch_latest_orders(update=True, n=100)
+
+    #refurbed_api.fetch_selected_orders(["13472027", "13474931"])
+    # refurbed_api.fetch_latest_orders(update=True, n=100)

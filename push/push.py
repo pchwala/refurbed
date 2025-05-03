@@ -5,8 +5,7 @@ import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 
-# test order: 339071
-# test order: 338076
+# test id 339335
 
 
 class IdoSellAPI:
@@ -56,39 +55,66 @@ class IdoSellAPI:
         else:
             raise Exception(f"Error: {response.status_code}, {response.text}")
     
-    def parse_sheet_row(self, row_index):
-        """
-        Parse a row from the Google Sheet and map each value to variables based on the sheet header.
-        
-        Args:
-            row_index (int): The row index to parse (1-based, as per Google Sheets)
+
+    def ids_push_all(self):
+        data = self.orders_sheet.get_all_values()
+
+        pending_rows = self.get_pending_rows(data=data)
+
+        # Set r_state to ACCEPTED
+        if pending_rows:
+            # Prepare orders worksheet batch update
+            batch_update = []
+            for row in pending_rows:
+                # Set r_state column (index 1, column B) to ACCEPTED
+                batch_update.append({
+                    'range': f'B{row}',
+                    'values': [['ACCEPTED']]
+                })
             
-        Returns:
-            dict: A dictionary containing all parsed values
+            # Execute batch update if there are pending rows
+            if batch_update:
+                self.orders_sheet.batch_update(batch_update)
+                print(f"Updated {len(pending_rows)} rows to ACCEPTED status")
+
+            # Create orders for each pending row
+            for row in pending_rows:
+                rowdata = data[row - 1]
+                self.create_order(ref_id=rowdata[18]) # Pass refurbed order ID
+
+        else:
+            print("No pending rows found to update")
+            return
+
+
+    def get_pending_rows(self, data=None):
         """
-        # Define the sheet header structure
-        sheet_header = [
-            "checkbox",
-            "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
-            "id_zestawu", "klasa", "magazyn", "notatki", "item_sku", "r_item_name",
-            "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
-        ]
+        Check each row in the orders sheet and return row numbers where:
+        1. Checkbox column is not empty
+        2. Checkbox value is TRUE
+        3. r_state value is NEW
         
-        # Get the row data from the sheet
-        row_data = self.orders_sheet.row_values(row_index)
+        Returns:
+            list: A list of row numbers (1-based) that match the criteria
+        """
         
-        # Create a dictionary to store the parsed values
-        parsed_data = {}
-        
-        # Map the values to variables based on the header
-        for i, header in enumerate(sheet_header):
-            if i < len(row_data):
-                parsed_data[header] = row_data[i]
-            else:
-                parsed_data[header] = ""  # Default empty string for missing values
-        
-        return parsed_data
-        
+        pending_rows = []
+
+        # Process each row starting from row 2 (index 1 in zero-based list)
+        for row_index, row in enumerate(data[1:], start=2):
+            # Check if row has data
+            if not row:
+                break
+                
+            # Check if checkbox is TRUE and r_state is NEW
+            checkbox_value = row[0].upper()  # Convert to uppercase for case-insensitive comparison
+            r_state_value = row[1]
+            
+            if checkbox_value == "TRUE" and r_state_value == "NEW":
+                pending_rows.append(row_index)
+                
+        return pending_rows
+
 
     def get_order(self, order_id=None):
         """
@@ -107,16 +133,21 @@ class IdoSellAPI:
             raise Exception(f"Error: {response.status_code}, {response.text}")
 
 
-    def create_order(self):
+    def create_order(self, ref_id=None):
         """
         Create a new order using the provided order data.
         """
         endpoint = f"{self.base_url}/orders/orders"
         
         with open('./push/create_body.json', 'r') as file:
-            orders_body = json.load(file)
+            order_body = json.load(file)
 
-        response = requests.post(endpoint, headers=self.headers, json=orders_body)
+        # Get order data from Refurbed
+        
+        # Create order_body
+
+
+        #response = requests.post(endpoint, headers=self.headers, json=order_body)
         
         if response.status_code == 200:
             return response.json()
@@ -159,10 +190,13 @@ ids_api = IdoSellAPI()
 #order_data = ids_api.get_order(order_id=temp_id)
 #print(order_data)
 
-row = ids_api.parse_sheet_row(85)
+#row = ids_api.parse_sheet_row(2)
+#print(row)
 
-ret = ids_api.edit_order(order_id=temp_id, order_status='new', order_details=row)
-print(ret)
+#ret = ids_api.edit_order(order_id=temp_id, order_status='new', order_details=row)
+#print(ret)
 
 #ret = ids_api.create_order()
 #print(ret)
+
+ids_api.ids_push_all()
