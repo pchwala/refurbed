@@ -5,6 +5,9 @@ import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+
 # test id 339335
 
 
@@ -35,9 +38,23 @@ class IdoSellAPI:
         self.base_url = "https://vedion.pl/api/admin/v5"
         
         # Default headers for requests
-        self.headers = {
+        self.ref_headers = {
             "accept": "application/json",
             "X-API-KEY": self.api_key
+        }
+
+        self.SHARED_RUN_URL = "https://shared-860977612313.europe-central2.run.app"
+
+        self.run_creds = service_account.IDTokenCredentials.from_service_account_file(
+            './keys/ref-ids-6c3ebadcd9f8.json',
+            target_audience=self.SHARED_RUN_URL
+        )
+
+        self.run_creds.refresh(Request())
+
+        self.run_headers = {
+            'Authorization': f'Bearer {self.run_creds.token}',
+            'Content-Type': 'application/json'
         }
     
     
@@ -48,44 +65,30 @@ class IdoSellAPI:
         if order_id:
             params["orderSerialNumber"] = order_id
         
-        response = requests.get(endpoint, headers=self.headers, params=params)
+        response = requests.get(endpoint, headers=self.ref_headers, params=params)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Error: {response.status_code}, {response.text}")
+        
+    
+    def get_order(self, order_id=None):
+        """
+        Get details of a specific order using its id.
+        """
+        endpoint = f"{self.base_url}/orders/orders"
+        params = {}
+        if order_id:
+            params["ordersSerialNumbers"] = order_id
+        
+        response = requests.get(endpoint, headers=self.ref_headers, params=params)
         
         if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Error: {response.status_code}, {response.text}")
     
-
-    def ids_push_all(self):
-        data = self.orders_sheet.get_all_values()
-
-        pending_rows = self.get_pending_rows(data=data)
-
-        # Set r_state to ACCEPTED
-        if pending_rows:
-            # Prepare orders worksheet batch update
-            batch_update = []
-            for row in pending_rows:
-                # Set r_state column (index 1, column B) to ACCEPTED
-                batch_update.append({
-                    'range': f'B{row}',
-                    'values': [['ACCEPTED']]
-                })
-            
-            # Execute batch update if there are pending rows
-            if batch_update:
-                self.orders_sheet.batch_update(batch_update)
-                print(f"Updated {len(pending_rows)} rows to ACCEPTED status")
-
-            # Create orders for each pending row
-            for row in pending_rows:
-                rowdata = data[row - 1]
-                self.create_order(ref_id=rowdata[18]) # Pass refurbed order ID
-
-        else:
-            print("No pending rows found to update")
-            return
-
 
     def get_pending_rows(self, data=None):
         """
@@ -114,45 +117,95 @@ class IdoSellAPI:
                 pending_rows.append(row_index)
                 
         return pending_rows
+    
+
+    def ids_push_all(self):
+        data = self.orders_sheet.get_all_values()
+
+        pending_rows = self.get_pending_rows(data=data)
+
+        # Set r_state to ACCEPTED
+        if pending_rows:
+            # Prepare orders worksheet batch update
+            batch_update = []
+            for row in pending_rows:
+                # Set r_state column (index 1, column B) to ACCEPTED
+                batch_update.append({
+                    'range': f'B{row}',
+                    'values': [['ACCEPTED']]
+                })
+            
+            # Execute batch update if there are pending rows
+            if batch_update:
+                self.orders_sheet.batch_update(batch_update)
+                print(f"Updated {len(pending_rows)} rows to ACCEPTED status")
 
 
-    def get_order(self, order_id=None):
-        """
-        Get details of a specific order using its id.
-        """
-        endpoint = f"{self.base_url}/orders/orders"
-        params = {}
-        if order_id:
-            params["ordersSerialNumbers"] = order_id
-        
-        response = requests.get(endpoint, headers=self.headers, params=params)
-        
-        if response.status_code == 200:
-            return response.json()
+            ref_ids = []    # List of pending refurbed order IDs
+
+            # List of rows in dict format where
+            # 1st element is refurbed order ID
+            # 2nd elemtent is data row from Orders sheet corresponding to that order ID
+            processed_rows = {}
+
+            for row in pending_rows:
+                rowdata = data[row - 1]
+                ref_ids.append(rowdata[18]) # Append refurbed order ID
+                processed_rows[rowdata[18]] = rowdata # Append one dict element
+
+            # Fetch selected orders from Refurbed
+            payload = {"order_ids": ref_ids}
+            url = f"{self.SHARED_RUN_URL}/fetch_selected"
+            response = requests.post(url, json=payload, headers=self.run_headers)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+
+            # Convert response to JSON
+            ref_selected_orders = response.json()
+            print(f"Fetched selected orders from Refurbed: {len(ref_selected_orders.get('orders', []))} orders")
+
+            # Create orders in IdoSell
+            self.crate_orders(pending_rows=processed_rows, ref_data=ref_selected_orders)
+
         else:
-            raise Exception(f"Error: {response.status_code}, {response.text}")
+            print("No pending rows found to update")
+            return
 
 
-    def create_order(self, ref_id=None):
+
+    def crate_orders(self, pending_rows=None, ref_data=None):
+        """
+        Create orders in IdoSell using the provided data.
+        """
+        for ref_id, data_row in pending_rows.items():
+            # Check if the order already exists in IdoSell
+            # Optional checking logic can be added here
+
+            # Create a new order
+            try:
+                # Find the order with matching id in the list
+                ref_order_data = {}
+                if 'orders' in ref_data and isinstance(ref_data['orders'], list):
+                    for order in ref_data['orders']:
+                        if order.get('id') == ref_id:
+                            ref_order_data = order
+                            break
+                
+                new_order = self.create_new_order(ref_id=ref_id, data_row=data_row, ref_data=ref_order_data)
+                print(f"Created new order in IdoSell: {new_order}")
+            except Exception as e:
+                print(f"Failed to create order for {ref_id}: {e}")
+                continue
+
+            # Edit the newly created order
+            # Edit order logic can be added here
+
+
+    def create_new_order(self, ref_id=None, data_row=None, ref_data=None):
         """
         Create a new order using the provided order data.
         """
         endpoint = f"{self.base_url}/orders/orders"
         
-        with open('./push/create_body.json', 'r') as file:
-            order_body = json.load(file)
-
-        # Get order data from Refurbed
-        
-        # Create order_body
-
-
-        #response = requests.post(endpoint, headers=self.headers, json=order_body)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Error: {response.status_code}, {response.text}")
         
 
     def edit_order(self, order_id, order_status='', order_details=None):
@@ -171,7 +224,7 @@ class IdoSellAPI:
             edit_body['params']['orders'][0]['clientNoteToOrder'] = f"[refurbed-idosell:{order_details['ID']}]"
             edit_body['params']['orders'][0]['orderNote'] = order_details['notatki'] 
         
-        response = requests.put(endpoint, headers=self.headers, json=edit_body)
+        response = requests.put(endpoint, headers=self.ref_headers, json=edit_body)
         
         if response.status_code == 200:
             return response.json()
