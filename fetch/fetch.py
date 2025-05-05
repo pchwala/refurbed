@@ -71,6 +71,27 @@ class RefurbedAPI:
         config = self.config_sheet.get_all_values()
         return config[1][0]
         
+
+    """
+    def payload_last(self, last_id):
+        # Fetch new orders from the last fetched order id
+        return {
+            "filter": {
+                "state": {
+                    "none_of": ["RETURNED", "CANCELLED"]
+                }
+            },
+            "pagination": {
+                "limit": 100,
+                "ending_before": last_id
+            },
+            "sort": {
+                "field": "id",
+                "order": "ASC"
+            }
+        }
+    """
+
         
     def payload_last(self, last_id):
         # Fetch new orders from the last fetched order id
@@ -360,4 +381,4 @@ if __name__ == "__main__":
 
     #refurbed_api.fetch_orders()
     #refurbed_api.update_states()
-    refurbed_api.fetch_latest_orders(update=True, n=100)
+    refurbed_api.fetch_latest_orders(update=True, n=50)

@@ -8,8 +8,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 
-# test id 339335
-
+# ZAMOWIENIA TESTOWE
+# zamowienie 2szt na firme - ids: 338976      ref: 13410452
 
 class IdoSellAPI:
     def __init__(self, tokens_path='./keys/tokens.json'):
@@ -38,8 +38,9 @@ class IdoSellAPI:
         self.base_url = "https://vedion.pl/api/admin/v5"
         
         # Default headers for requests
-        self.ref_headers = {
+        self.ids_headers = {
             "accept": "application/json",
+            "content-type": "application/json",
             "X-API-KEY": self.api_key
         }
 
@@ -56,6 +57,37 @@ class IdoSellAPI:
             'Authorization': f'Bearer {self.run_creds.token}',
             'Content-Type': 'application/json'
         }
+
+        # Country codes to Polish country names mapping
+        self.country_names = {
+            "AT": "Austria",
+            "BE": "Belgia",
+            "BG": "Bułgaria",
+            "HR": "Chorwacja",
+            "CY": "Cypr",
+            "CZ": "Czechy",
+            "DK": "Dania",
+            "EE": "Estonia",
+            "FI": "Finlandia",
+            "FR": "Francja",
+            "GR": "Grecja",
+            "DE": "Niemcy",
+            "ES": "Hiszpania",
+            "NL": "Holandia",
+            "IE": "Irlandia",
+            "LU": "Luksemburg",
+            "LT": "Litwa",
+            "LV": "Łotwa",
+            "MT": "Malta",
+            "PL": "Polska",
+            "PT": "Portugalia",
+            "RO": "Rumunia",
+            "SK": "Słowacja",
+            "SI": "Słowenia",
+            "SE": "Szwecja",
+            "HU": "Węgry",
+            "IT": "Włochy"
+        }
     
     
     def get_order_history(self, order_id=None):
@@ -65,7 +97,7 @@ class IdoSellAPI:
         if order_id:
             params["orderSerialNumber"] = order_id
         
-        response = requests.get(endpoint, headers=self.ref_headers, params=params)
+        response = requests.get(endpoint, headers=self.ids_headers, params=params)
         
         if response.status_code == 200:
             return response.json()
@@ -82,7 +114,23 @@ class IdoSellAPI:
         if order_id:
             params["ordersSerialNumbers"] = order_id
         
-        response = requests.get(endpoint, headers=self.ref_headers, params=params)
+        response = requests.get(endpoint, headers=self.ids_headers, params=params)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Error: {response.status_code}, {response.text}")
+        
+    def get_product(self, product_id=None):
+        """
+        Get details of a specific product using its id.
+        """
+        endpoint = f"{self.base_url}/products/products"
+        params = {}
+        if product_id:
+            params["productIds"] = product_id
+        
+        response = requests.get(endpoint, headers=self.ids_headers, params=params)
         
         if response.status_code == 200:
             return response.json()
@@ -164,7 +212,7 @@ class IdoSellAPI:
             print(f"Fetched selected orders from Refurbed: {len(ref_selected_orders.get('orders', []))} orders")
 
             # Create orders in IdoSell
-            self.crate_orders(pending_rows=processed_rows, ref_data=ref_selected_orders)
+            self.create_orders(pending_rows=processed_rows, ref_data=ref_selected_orders)
 
         else:
             print("No pending rows found to update")
@@ -172,7 +220,7 @@ class IdoSellAPI:
 
 
 
-    def crate_orders(self, pending_rows=None, ref_data=None):
+    def create_orders(self, pending_rows=None, ref_data=None):
         """
         Create orders in IdoSell using the provided data.
         """
@@ -192,6 +240,29 @@ class IdoSellAPI:
                 
                 new_order = self.create_new_order(ref_id=ref_id, data_row=data_row, ref_data=ref_order_data)
                 print(f"Created new order in IdoSell: {new_order}")
+                new_order_id = new_order['results']['ordersResults'][0]['orderSerialNumber']
+                print(f"New order ID: {new_order_id}")
+
+                # Get all values from Config sheet
+                config_data = self.config_sheet.get_all_values()
+
+                # Find first empty row in columns D & E
+                empty_row = None
+                for i, row in enumerate(config_data):
+                    # Check if we have enough columns and D or E is empty
+                    if len(row) >= 5 and (not row[3] or not row[4]):
+                        empty_row = i + 1  # Convert to 1-based index
+                        break
+
+                # If no empty row found, append to the end
+                if empty_row is None:
+                    empty_row = len(config_data) + 1
+
+                # Update the Config sheet with new values
+                self.config_sheet.update_cell(empty_row, 4, ref_id)  # Column D
+                self.config_sheet.update_cell(empty_row, 5, new_order_id)  # Column E
+
+                print(f"Updated Config sheet: added ref_id {ref_id} and order_id {new_order_id} in row {empty_row}")
             except Exception as e:
                 print(f"Failed to create order for {ref_id}: {e}")
                 continue
@@ -204,11 +275,129 @@ class IdoSellAPI:
         """
         Create a new order using the provided order data.
         """
+        # Temporary checking if there is more than one item in the order
+        # If total charged is more than charged for the first item then there is more items in the order
+        if ref_data['total_charged'] != ref_data['items'][0]['total_charged']:
+            raise Exception(f"Order {ref_id} has more than one item. Please check the order in Refurbed.")
+
         endpoint = f"{self.base_url}/orders/orders"
         
-        
+        with open('./push/create_body.json', 'r') as file:
+            create_body = json.load(file)
+            # Create a shorthand variable for the nested dictionary
+            order = create_body['params']['orders'][0]
+            # Put order details into create_body
+            order['currencyId'] = ref_data['currency_code']
+            order['billingCurrency'] = ref_data['currency_code']
+            # Format the date to extract only YYYY-MM-DD from the ISO timestamp
+            order['purchaseDate'] = ref_data['released_at'].split('T')[0]
+            order['stockId'] = data_row[10].lstrip('M') if data_row[10] else "" # Extract only the number from warehouse code (e.g., M23 -> 23)
+            
+            # Populate client data
+            client_data = order['clientWithoutAccountData']
+            shipping_address = ref_data['shipping_address']
+            
+            client_data['clientFirstName'] = shipping_address['first_name']
+            client_data['clientLastName'] = shipping_address['family_name']
+            #client_data['clientFirm'] = 
+            #client_data['clientNip'] = 
+            client_data['clientStreet'] = shipping_address['street_name'] + ' ' + shipping_address['house_no']
+            client_data['clientZipCode'] = shipping_address['post_code']
+            client_data['clientCity'] = shipping_address['town']
+            client_data['clientCountry'] = self.country_names[shipping_address['country_code']]
+            #client_data['clientEmail'] = ref_data['customer_email']
+            client_data['clientEmail'] = "Janusz@testowy.com"
+            #client_data['clientPhone1'] = shipping_address['phone_number']
+            client_data['clientPhone1'] = "500100100"
+            client_data['langId'] = shipping_address['country_code']
+            
+            # Populate delivery address (if different from billing)
+            delivery_address = order['clientDeliveryAddress']
+            delivery_address['clientDeliveryAddressFirstName'] = shipping_address['first_name']
+            delivery_address['clientDeliveryAddressLastName'] = shipping_address['family_name']
+            delivery_address['clientDeliveryAddressFirm'] = ""
+            delivery_address['clientDeliveryAddressStreet'] = shipping_address['street_name'] + ' ' + shipping_address['house_no']
+            delivery_address['clientDeliveryAddressZipCode'] = shipping_address['post_code']
+            delivery_address['clientDeliveryAddressCity'] = shipping_address['town']
+            delivery_address['clientDeliveryAddressCountry'] = self.country_names[shipping_address['country_code']]
+            delivery_address['clientDeliveryAddressCountryId'] = shipping_address['country_code']
+            #delivery_address['clientDeliveryAddressPhone1'] = shipping_address['phone_number']
+            delivery_address['clientDeliveryAddressPhone1'] = "500100100"
 
-    def edit_order(self, order_id, order_status='', order_details=None):
+            # Get bundle items data:
+            bundle_response = self.get_product(product_id=data_row[6])
+            bundle = bundle_response['results'][0]['productBundleItems']
+
+            product = order['products']
+            product[0] = {
+                "productId": data_row[6],
+                "sizeId": "uniw",
+                "stockId": data_row[10].lstrip('M') if data_row[10] else "",
+                "productQuantity": 1,
+                "productQuantityOperationType": "add",
+                "productRetailPrice": data_row[4],
+                "productVat": data_row[5],
+                "remarksToProduct": ""
+            }
+
+            # If bundle is empty, use only product id
+            # If bundle is not empty, use product id and add bundle items
+            if not bundle:
+                product[0]['remarksToProduct'] = "Brak zestawu"
+            else:
+                # Make a list of bundle items and aapend them to the product
+                product_bundle_items = []
+                for item in bundle:
+                    product_bundle_items.append({
+                        "productId": item['productId'],
+                        "sizeId": "uniw",
+                    })
+                    if item['isBundleShown'] == True:
+                        id_matki = item['productId']
+
+                product[0]['productBundleItems'] = product_bundle_items
+
+            item_parts = data_row[13].split("|")
+            # Keyboard layout for order. Strip it from the item name
+            keyboard_layout = item_parts[-1].strip()
+
+            # Storage size for order. Strip it from the item name
+            for part in item_parts:
+                part = part.strip()
+                if "GB SSD" in part or "TB SSD" in part or "GB HDD" in part or "TB HDD" in part:
+                    # Extract just the capacity portion (e.g., "512 GB" from "512 GB SSD")
+                    hard_drive = part.split("SSD")[0].split("HDD")[0].strip()
+                    break
+
+            # Create order notes
+            notes = "ID matki: " + str(id_matki) + "\n"
+            notes += "Klasa " + data_row[7] + "\n"
+            notes += "Klawiatura: " + keyboard_layout + "\n"
+            notes += "Dysk: " + hard_drive + "\n"
+
+            if data_row[8] == "TRUE":
+                notes += "Wymiana klawiatury\n"
+            if data_row[9] == "TRUE":
+                notes += "Wymiana baterii\n"
+
+            product[0]['remarksToProduct'] = notes
+            order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
+
+        # Save the modified create_body to a temporary file for debugging/logging
+        with open('./push/edited_create_body.json', 'w') as file:
+            json.dump(create_body, file, indent=2)
+        
+            
+        # Add the API request and response handling
+        response = requests.post(endpoint, headers=self.ids_headers, json=create_body)
+
+        if response.status_code in [200, 207]:
+            return response.json()
+        else:
+            raise Exception(f"Error creating order: {response.status_code}, {response.text}")
+
+
+    def edit_order(self, order_id, order_details=None):
         """
         Edit an existing order using the provided order id.
         """
@@ -218,18 +407,18 @@ class IdoSellAPI:
             edit_body = json.load(file)
 
         # Update the order_serial_number in the edit_body
-        if "orders" in edit_body['params']:
-            edit_body['params']['orders'][0]['orderSerialNumber'] = order_id
-            edit_body['params']['orders'][0]['orderStatus'] = order_status
-            edit_body['params']['orders'][0]['clientNoteToOrder'] = f"[refurbed-idosell:{order_details['ID']}]"
-            edit_body['params']['orders'][0]['orderNote'] = order_details['notatki'] 
+        #if "orders" in edit_body['params']:
+            # Create a shorthand variable for the nested dictionary
+            #order = edit_body['params']['orders'][0]
+            # Put order details into edit_body
+            #order['orderSerialNumber'] = order_id
+            #order['orderStatus'] = order_status
+            #order['clientNoteToOrder'] = f"[refurbed-idosell:{order_details['ID']}]"
+            #order['orderNote'] = order_details['notatki'] 
         
-        response = requests.put(endpoint, headers=self.ref_headers, json=edit_body)
+        response = requests.put(endpoint, headers=self.ids_headers, json=edit_body)
         
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Error: {response.status_code}, {response.text}")
+        return response.json()
     
 
 
@@ -237,6 +426,8 @@ class IdoSellAPI:
 temp_id = "339335"
 
 ids_api = IdoSellAPI()
+ret = None
+
 #order_history = ids_api.get_order_history(order_id="339071")
 #print(order_history)
 
@@ -246,10 +437,20 @@ ids_api = IdoSellAPI()
 #row = ids_api.parse_sheet_row(2)
 #print(row)
 
-#ret = ids_api.edit_order(order_id=temp_id, order_status='new', order_details=row)
-#print(ret)
+#ret = ids_api.edit_order(order_id=temp_id)
 
 #ret = ids_api.create_order()
 #print(ret)
 
-ids_api.ids_push_all()
+ret = ids_api.ids_push_all()
+
+#ret = ids_api.get_product(product_id="28510")
+
+
+# Parse the response text as JSON and write it with proper formatting
+with open('./push/debug.json', 'w') as file:
+    try:
+        json.dump(ret, file, indent=2)
+    except json.JSONDecodeError:
+        # If response is not valid JSON, write the raw text
+        file.write(ret)

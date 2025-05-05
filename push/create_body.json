@@ -4,7 +4,7 @@
       {
         "shopId": 1,
         "stockId": 2,
-        "apiFlag": "apiFlag",
+        "apiFlag": "registered",
         "orderPaymentType": "prepaid",
         "currencyId": "EUR",
         "clientWithoutAccountData": {
@@ -26,7 +26,6 @@
         "deliveryCost": 0,
         "clientDeliveryAddress": {
           "clientDeliveryAddressFirm": "",
-          "clientDeliveryAddressType": "client",
           "clientDeliveryAddressPickupPointInternalId": 0,
           "clientDeliveryAddressFirstName": "clientDeliveryAddressFirstName",
           "clientDeliveryAddressLastName": "clientDeliveryAddressLastName",
@@ -41,22 +40,27 @@
         },
         "products": [
           {
-            "productId": 2,
-            "productQuantity": 1,
-            "stockId": 1,
-            "productRetailPrice": 0
+              "productId": 1,
+              "sizeId": "uniw",
+              "stockId": 2,
+              "productQuantity": 1,
+              "productQuantityOperationType": "add",
+              "productRetailPrice": 0,
+              "productVat": 0,
+              "remarksToProduct": "test",
+              "productBundleItems": [
+              ]
           }
         ],
         "orderRebateValue": 0,
         "orderOperatorLogin": "refurbed",
         "ignoreBridge": true,
         "settings": {
-          "settingSendMail": true,
-          "settingSendSMS": true
+          "settingSendMail": false,
+          "settingSendSMS": false
         },
         "orderSettledAtPrice": "orderSettledAtPrice",
         "billingCurrency": "EUR",
-        "billingCurrencyRate": 4.2818,
         "purchaseDate": "2025-04-26"
       }
     ]
