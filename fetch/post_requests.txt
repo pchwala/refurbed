@@ -1,3 +1,9 @@
-curl -X POST https://fetch-860977612313.europe-central2.run.app \
+curl -X POST https://fetch-860977612313.europe-central2.run.app/
+
+curl -X POST https://fetch-860977612313.europe-central2.run.app/update-states
+
+curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{}'
+  -d '{"limit": 50, "update": true}' \
+  https://fetch-860977612313.europe-central2.run.app/latest-orders
+
