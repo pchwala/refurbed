@@ -5,3 +5,11 @@ oczekuje na wplate = payment_waiting
 anulowane przez klienta = canceled
 wyslane = finished
 
+# Step 1: Get an identity token
+TOKEN=$(gcloud auth print-identity-token)
+
+# Step 2: Make the POST request to the service endpoint
+curl -X POST \
+-H "Authorization: Bearer \
+-H "Content-Type: application/json" \
+https://push-860977612313.europe-central2.run.app
