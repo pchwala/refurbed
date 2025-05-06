@@ -453,6 +453,71 @@ def run_task():
     return render_template('index.html', output=output)
 
 
+@app.route("/fetch_orders", methods=["POST"])
+def fetch_orders():
+    """Fetch new orders from Refurbed API through the shared service"""
+    try:
+        api = CloudIdoSellAPI()
+        # Make a POST request to the shared service
+        response = requests.post(
+            f"{api.SHARED_RUN_URL}/fetch_orders", 
+            headers=api.run_headers
+        )
+        response.raise_for_status()
+        
+        # Process the response
+        result = response.json()
+        if "error" in result:
+            return render_template('index.html', output=f"Błąd: {result['error']}")
+        
+        orders_count = len(result.get("orders", []))
+        output = f"Pobrano {orders_count} nowych zamówień z Refurbed."
+        
+        # Display more details if orders were fetched
+        if orders_count > 0:
+            output += "\n\nZnalezione zamówienia:"
+            for order in result.get("orders", []):
+                output += f"\nID: {order.get('id')} - Stan: {order.get('state')} - Data: {order.get('released_at', 'N/A')}"
+        
+        return render_template('index.html', output=output)
+    except Exception as e:
+        error_msg = f"Błąd podczas pobierania zamówień: {str(e)}"
+        return render_template('index.html', output=error_msg)
+
+
+@app.route("/update_states", methods=["POST"])
+def update_states():
+    """Update order states from Refurbed API through the shared service"""
+    try:
+        api = CloudIdoSellAPI()
+        # Make a POST request to the shared service
+        response = requests.post(
+            f"{api.SHARED_RUN_URL}/update_states", 
+            headers=api.run_headers
+        )
+        response.raise_for_status()
+        
+        # Process the response
+        result = response.json()
+        if "error" in result:
+            return render_template('index.html', output=f"Błąd: {result['error']}")
+        
+        updated_count = result.get("updated", 0)
+        total_count = result.get("total", 0)
+        output = f"Zaktualizowano {updated_count} z {total_count} stanów zamówień."
+        
+        # Show details of updated orders
+        if updated_count > 0 and "orders" in result:
+            output += "\n\nZaktualizowane zamówienia:"
+            for order in result.get("orders", []):
+                output += f"\nWiersz {order.get('row')}: ID {order.get('id')} - Nowy stan: {order.get('state')}"
+        
+        return render_template('index.html', output=output)
+    except Exception as e:
+        error_msg = f"Błąd podczas aktualizacji stanów: {str(e)}"
+        return render_template('index.html', output=error_msg)
+
+
 @app.route("/api/push", methods=["POST"])
 def push_orders_endpoint():
     """API endpoint for programmatic access"""
