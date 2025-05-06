@@ -46,6 +46,7 @@ class CloudIdoSellAPI:
         }
 
         self.SHARED_RUN_URL = os.environ.get("SHARED_RUN_URL", "https://shared-860977612313.europe-central2.run.app")
+        self.FETCH_RUN_URL = "https://fetch-860977612313.europe-central2.run.app"
 
         # Create credentials for Cloud Run authentication
         self.run_creds = service_account.IDTokenCredentials.from_service_account_info(
@@ -455,12 +456,12 @@ def run_task():
 
 @app.route("/fetch_orders", methods=["POST"])
 def fetch_orders():
-    """Fetch new orders from Refurbed API through the shared service"""
+    """Fetch orders from Refurbed API through the fetch service"""
     try:
         api = CloudIdoSellAPI()
-        # Make a POST request to the shared service
+        # Make a POST request to the fetch service
         response = requests.post(
-            f"{api.SHARED_RUN_URL}/fetch_orders", 
+            f"{api.FETCH_RUN_URL}/", 
             headers=api.run_headers
         )
         response.raise_for_status()
@@ -470,15 +471,7 @@ def fetch_orders():
         if "error" in result:
             return render_template('index.html', output=f"Błąd: {result['error']}")
         
-        orders_count = len(result.get("orders", []))
-        output = f"Pobrano {orders_count} nowych zamówień z Refurbed."
-        
-        # Display more details if orders were fetched
-        if orders_count > 0:
-            output += "\n\nZnalezione zamówienia:"
-            for order in result.get("orders", []):
-                output += f"\nID: {order.get('id')} - Stan: {order.get('state')} - Data: {order.get('released_at', 'N/A')}"
-        
+        output = "Zamówienia zostały pobrane pomyślnie."
         return render_template('index.html', output=output)
     except Exception as e:
         error_msg = f"Błąd podczas pobierania zamówień: {str(e)}"
