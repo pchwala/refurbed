@@ -1,0 +1,68 @@
+{
+  "params": {
+    "orders": [
+      {
+        "shopId": 1,
+        "stockId": 2,
+        "apiFlag": "registered",
+        "orderPaymentType": "prepaid",
+        "currencyId": "EUR",
+        "clientWithoutAccountData": {
+          "clientFirstName": "clientFirstName",
+          "clientLastName": "clientLastName",
+          "clientFirm": "",
+          "clientNip": "",
+          "clientStreet": "clientStreet",
+          "clientZipCode": "clientZipCode",
+          "clientCity": "clientCity",
+          "clientCountry": "clientCountry",
+          "clientEmail": "clientEmail",
+          "clientPhone1": "clientPhone1",
+          "langId": "langId"
+        },
+        "affiliateId": 1,
+        "courierId": 100191,
+        "pickupPointId": 0,
+        "deliveryCost": 0,
+        "clientDeliveryAddress": {
+          "clientDeliveryAddressFirm": "",
+          "clientDeliveryAddressPickupPointInternalId": 0,
+          "clientDeliveryAddressFirstName": "clientDeliveryAddressFirstName",
+          "clientDeliveryAddressLastName": "clientDeliveryAddressLastName",
+          "clientDeliveryAddressStreet": "clientDeliveryAddressStreet",
+          "clientDeliveryAddressZipCode": "clientDeliveryAddressZipCode",
+          "clientDeliveryAddressCity": "clientDeliveryAddressCity",
+          "clientDeliveryAddressCountry": "clientDeliveryAddressCountry",
+          "clientDeliveryAddressCountryId": "clientDeliveryAddressCountryId",
+          "clientDeliveryAddressPhone1": "clientDeliveryAddressPhone1",
+          "clientDeliveryAddressProvinceId": "",
+          "clientDeliveryAddressProvince": ""
+        },
+        "products": [
+          {
+              "productId": 1,
+              "sizeId": "uniw",
+              "stockId": 2,
+              "productQuantity": 1,
+              "productQuantityOperationType": "add",
+              "productRetailPrice": 0,
+              "productVat": 0,
+              "remarksToProduct": "test",
+              "productBundleItems": [
+              ]
+          }
+        ],
+        "orderRebateValue": 0,
+        "orderOperatorLogin": "refurbed",
+        "ignoreBridge": true,
+        "settings": {
+          "settingSendMail": false,
+          "settingSendSMS": false
+        },
+        "orderSettledAtPrice": "orderSettledAtPrice",
+        "billingCurrency": "EUR",
+        "purchaseDate": "2025-04-26"
+      }
+    ]
+  }
+}
