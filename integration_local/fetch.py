@@ -1,22 +1,39 @@
+import os
 import requests
 import json
 import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 
+import time
+
 class RefurbedAPI:
-    def __init__(self, ref_key=None, creds=None, client=None, sheet_id=None, orders_sheet=None, config_sheet=None):
-        """
-        Initialize with optional parameters to allow using existing credentials
+    def __init__(self):
+        # === Google Sheets Setup ===
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive"
+        ]
+
+        self.creds = ServiceAccountCredentials.from_json_keyfile_name('./keys/ref-ids-6c3ebadcd9f8.json', scope)
+        self.client = gspread.authorize(self.creds)
+
+        self.sheet_id = "15e6oc33_A21dNNv03wqdixYc9_mM2GTQzum9z2HylEg"
         
-        Args:
-            headers (dict): API headers for Refurbed API
-            creds (ServiceAccountCredentials): Google Sheets API credentials
-            client (gspread.Client): Authorized gspread client
-            sheet_id (str): Google Sheet ID
-            orders_sheet (gspread.Worksheet): Orders worksheet
-            config_sheet (gspread.Worksheet): Config worksheet
-        """
+        # Load token from JSON file
+        with open('./keys/tokens.json') as token_file:
+            tokens = json.load(token_file)
+            self.ref_token = tokens['refurbed_token']
+            
+        self.headers = {
+            "Authorization": f"Plain {self.ref_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Open Orders and Config worksheets
+        self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
+        self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
+
         # VAT rates for EU countries
         self.vat_rates = {
             "AT": 20,  # Austria
@@ -47,39 +64,34 @@ class RefurbedAPI:
             "HU": 27,  # Węgry
             "IT": 22   # Włochy
         }
-        
-        # Set up API headers
-        # Default headers for requests for Refurbed
-        self.headers = {
-            "Authorization": f"Plain {ref_key}",
-            "Content-Type": "application/json"
-        }
-            
-        # Set up Google Sheets connection
-        if creds and sheet_id:
-            self.creds = creds
-            if client:
-                self.client = client
-            else:
-                self.client = gspread.authorize(self.creds)
-            
-            self.sheet_id = sheet_id
-            
-            # Use provided sheets or open new ones
-            if orders_sheet:
-                self.orders_sheet = orders_sheet
-            else:
-                self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
-                
-            if config_sheet:
-                self.config_sheet = config_sheet
-            else:
-                self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
+
 
     def get_last_order_id(self):
         # Read last fetched order id from Config Sheet
         config = self.config_sheet.get_all_values()
         return config[1][0]
+        
+
+    """
+    def payload_last(self, last_id):
+        # Fetch new orders from the last fetched order id
+        return {
+            "filter": {
+                "state": {
+                    "none_of": ["RETURNED", "CANCELLED"]
+                }
+            },
+            "pagination": {
+                "limit": 100,
+                "ending_before": last_id
+            },
+            "sort": {
+                "field": "id",
+                "order": "ASC"
+            }
+        }
+    """
+
         
     def payload_last(self, last_id):
         # Fetch new orders from the last fetched order id
@@ -99,6 +111,7 @@ class RefurbedAPI:
             }
         }
     
+
     def payload_all(self, limit=100):
         # Fetch last n orders
         return {
@@ -116,26 +129,6 @@ class RefurbedAPI:
             }
         }
     
-    def payload_selected(self, order_ids):
-        # Fetch selected orders
-        return {
-            "filter": {
-                "state": {
-                    "none_of": ["RETURNED", "CANCELLED"]
-                },
-                "id": {
-                    "any_of": order_ids
-                }
-            },
-            "pagination": {
-                "limit": 100,
-            },
-            "sort": {
-                "field": "id",
-                "order": "DESC"
-            }
-        }
-        
     def process_orders(self, orders):
         sheet_header = [
             "checkbox",
@@ -182,7 +175,6 @@ class RefurbedAPI:
             
             # Extract offer_grading from offer_data if available
             klasa = ""
-            battery_replace = "FALSE"
             if item and "offer_data" in item:
                 offer_data = item.get("offer_data", {})
                 klasa = offer_data.get("offer_grading", "")
@@ -216,6 +208,7 @@ class RefurbedAPI:
             sheet_rows.append(row)
             
         return sheet_rows, last_id
+    
 
     def update_sheets(self, sheet_rows, last_id):
         # === Write to sheet ===
@@ -239,6 +232,7 @@ class RefurbedAPI:
                 set_data_validation_for_cell_range(self.orders_sheet, cell_range, checkbox_rule)
 
         print(f"Successfully wrote {len(sheet_rows)} rows to Google Sheets.")
+
 
     def fetch_orders(self):
         # === Refurbed API Setup ===
@@ -266,32 +260,6 @@ class RefurbedAPI:
         # Update sheets
         self.update_sheets(sheet_rows, last_id)
 
-    def fetch_selected_orders(self, order_ids):
-        """Fetches specific orders by their IDs.
-        
-        Args:
-            order_ids (list): List of order IDs to fetch
-        
-        Returns:
-            list: The fetched order data
-        """
-        # === Refurbed API Setup ===
-        r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
-        
-        # Create payload for specific orders
-        payload = self.payload_selected(order_ids)
-    
-        # Get, decode and save response
-        response = requests.post(r_URL, headers=self.headers, json=payload)
-    
-        if response.status_code != 200:
-            print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
-            return []
-    
-        response_data = response.json()
-        orders = response_data.get('orders', [])
-        
-        return orders
 
     def fetch_latest_orders(self, update=False, n=100):
         """Fetches the latest 100 orders regardless of the last fetched order ID."""
@@ -320,6 +288,7 @@ class RefurbedAPI:
             self.update_sheets(sheet_rows, "")
         
         print(f"Fetched latest {len(orders)} orders")
+
 
     def update_order_states(self, orders):
         # Get all order IDs and values from the sheet
@@ -360,10 +329,8 @@ class RefurbedAPI:
             # Apply all updates in batch
             self.orders_sheet.batch_update(updates)
             print(f"Updated {len(updates)} order states in the Google Sheet")
-            return len(updates)
         else:
             print("No orders found to update")
-            return 0
 
     def update_states(self):
         # === Refurbed API Setup ===
@@ -376,12 +343,20 @@ class RefurbedAPI:
         response = requests.post(r_URL, headers=self.headers, json=payload)
         if response.status_code != 200:
             print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
-            raise Exception(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+            return
         
         response_data = response.json()
         orders = response_data.get('orders', [])
         
         # Update order states in the Google Sheet
-        updated = self.update_order_states(orders)
+        self.update_order_states(orders)
 
-        return updated
+
+
+
+if __name__ == "__main__":
+    refurbed_api = RefurbedAPI()
+
+    #refurbed_api.fetch_orders()
+    #refurbed_api.update_states()
+    refurbed_api.fetch_latest_orders(update=True, n=50)

@@ -12,3 +12,6 @@ backups/
 # Local configuration
 .git/
 .venv/
+
+# Cache files
+*.pyc

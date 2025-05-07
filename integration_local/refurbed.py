@@ -1,8 +1,11 @@
+import os
 import requests
 import json
 import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
+
+import time
 
 class RefurbedAPI:
     def __init__(self, ref_key=None, creds=None, client=None, sheet_id=None, orders_sheet=None, config_sheet=None):
@@ -375,6 +378,7 @@ class RefurbedAPI:
         # Get, decode and save response
         response = requests.post(r_URL, headers=self.headers, json=payload)
         if response.status_code != 200:
+
             print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
             raise Exception(f"Error: Failed to fetch orders. Status code: {response.status_code}")
         
@@ -384,4 +388,4 @@ class RefurbedAPI:
         # Update order states in the Google Sheet
         updated = self.update_order_states(orders)
 
-        return updated
+        return  updated

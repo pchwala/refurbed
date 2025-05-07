@@ -1,9 +1,14 @@
 import os
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for
+import requests
 import json
 import gspread
+from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
 import io
+import sys
 from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
 from idosell import IdoSellAPI
@@ -12,22 +17,25 @@ app = Flask(__name__)
 
 class Integration:
     def __init__(self):
-        """Initialize the IdoSell API client with credentials from environment variables."""
+        """Initialize the IdoSell API client with credentials from files."""
         # === Google Sheets Setup ===
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive"
         ]
 
-        creds_json = os.environ["GCLOUD_CREDENTIALS_JSON"]
-        self.creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), scope)
+        # Load credentials from file instead of environment variable
+        self.creds = ServiceAccountCredentials.from_json_keyfile_name('/home/vis/Projects/refurbed/keys/ref-ids-6c3ebadcd9f8.json', scope)
         self.client = gspread.authorize(self.creds)
 
-        self.sheet_id = os.environ["SHEET_ID"]
+        # Set sheet_id directly
+        self.sheet_id = "15e6oc33_A21dNNv03wqdixYc9_mM2GTQzum9z2HylEg"
         
-        # Load API keys from environment variables
-        self.ids_key = os.environ["IDOSELL_API_KEY"]
-        self.ref_key = os.environ["REFURBED_API_KEY"]
+        # Load API keys from tokens.json file
+        with open("/home/vis/Projects/refurbed/keys/tokens.json", "r") as f:
+            tokens = json.load(f)
+            self.ids_key = tokens["idosell_api_key"]
+            self.ref_key = tokens["refurbed_token"]
         
         # Open Orders and Config worksheets
         self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
@@ -244,6 +252,7 @@ def update_states():
         # Use the RefurbedAPI directly
         updated = api.refurbed_api.update_states()
         return render_template('index.html', output=f"Zaktualizowano {updated} zamówień.")
+        
     except Exception as e:
         error_msg = f"Błąd podczas aktualizacji stanów: {str(e)}"
         return render_template('index.html', output=error_msg)
