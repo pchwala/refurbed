@@ -4,6 +4,7 @@ import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 
+
 class RefurbedAPI:
     def __init__(self, ref_key=None, creds=None, client=None, sheet_id=None, orders_sheet=None, config_sheet=None):
         """
@@ -139,8 +140,8 @@ class RefurbedAPI:
     def process_orders(self, orders):
         sheet_header = [
             "checkbox",
-            "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
-            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "notatki", "item_sku", "r_item_name",
+            "r_state", "r_country_code", "r_currency_code", "r_total_paid", "vat",
+            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "idosell_id", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
 
@@ -179,6 +180,8 @@ class RefurbedAPI:
                             vat_value = 0
                     else:
                         vat_value = self.vat_rates.get(country_code, "")
+            else:
+                vat_value = -1 # VAT marża
             
             # Extract offer_grading from offer_data if available
             klasa = ""
@@ -189,19 +192,27 @@ class RefurbedAPI:
                 # Check if battery has to be replaced
                 battery_replace = "TRUE" if offer_data.get("battery_condition", "") == "NEW" else "FALSE"
 
+            if is_iphone is False:
+                if klasa == "B":
+                    klasa = "A 2"
+                elif klasa == "C":
+                    klasa = "A-"
+            else:
+                klasa = ""
+
             row = [
                 "FALSE",  # checkbox
                 order.get("state", ""),
                 country_code,
                 order.get("settlement_currency_code", ""),
-                order.get("settlement_total_charged", ""),
+                order.get("settlement_total_paid", ""),
                 vat_value,
                 "",  # id_zestawu
                 klasa,  # klasa - now contains offer_grading
                 "FALSE",  # klaw 
                 battery_replace,  # bat 
                 "",  # magazyn
-                "",  # notatki
+                "",  # idosell_id
                 item.get("sku", ""),
                 item_name,
                 order.get("customer_email", ""),
@@ -375,6 +386,7 @@ class RefurbedAPI:
         # Get, decode and save response
         response = requests.post(r_URL, headers=self.headers, json=payload)
         if response.status_code != 200:
+
             print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
             raise Exception(f"Error: Failed to fetch orders. Status code: {response.status_code}")
         
@@ -384,4 +396,4 @@ class RefurbedAPI:
         # Update order states in the Google Sheet
         updated = self.update_order_states(orders)
 
-        return updated
+        return  updated

@@ -2,7 +2,10 @@ import os
 from flask import Flask, request, jsonify, render_template
 import json
 import gspread
+from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
 import io
 from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
@@ -72,6 +75,193 @@ class Integration:
                 
         return pending_rows
     
+    def get_config_rows(self, needed=0, data=None):
+        """
+        Return the list of row indexes that you can write config data to.
+        If there is less empty rows than needed, then return None.
+        """
+        # Process each row starting from row 2 (index 1 in zero-based list)
+        empty_rows = []
+        for row_index, row in enumerate(data[1:], start=2):
+            # Check if row has data
+            if row[3] == '' and row[4] == '':
+                empty_rows.append(row_index)
+                needed -= 1
+                if needed == 0:
+                    return empty_rows
+        
+        # Return the collected empty rows even if we didn't find enough
+        return empty_rows if empty_rows else None
+                
+    def update_config(self, created_orders):
+        """
+        Update the Config sheet with the created orders ids
+        """
+        config = self.config_sheet.get_all_values()
+        # Find empty rows in the Config sheet
+        empty_rows = self.get_config_rows(needed=len(created_orders), data=config)
+        
+        # If there are empty rows available, use them
+        if empty_rows and len(empty_rows) >= len(created_orders):
+            batch_update = []
+            for i, row in enumerate(empty_rows[:len(created_orders)], start=0):
+                # Set ref_id and idosell_id columns (D and E)
+                batch_update.append({
+                    'range': f'D{row}:E{row}',
+                    'values': [[created_orders[i]["ref_id"], created_orders[i]["idosell_id"]]]
+                })
+            # Execute batch update 
+            if batch_update:
+                self.config_sheet.batch_update(batch_update)
+                print(f"Updated {len(batch_update)} rows in Config sheet with created orders")
+        else:
+            # Not enough empty rows, append new rows
+            # Get total number of rows to calculate where to insert
+            num_rows = len(config)
+            
+            batch_update = []
+            for i, c_order in enumerate(created_orders):
+                row_num = num_rows + i + 1  # +1 because sheet is 1-indexed
+                batch_update.append({
+                    'range': f'D{row_num}:E{row_num}',
+                    'values': [[c_order["ref_id"], c_order["idosell_id"]]]
+                })
+            
+            # First append empty rows
+            empty_data = [["", "", "", "", ""] for _ in range(len(created_orders))]
+            self.config_sheet.append_rows(empty_data)
+            
+            # Then update the specific cells in columns D and E
+            if batch_update:
+                self.config_sheet.batch_update(batch_update)
+                print(f"Added {len(batch_update)} new rows to Config sheet with created orders")
+
+        return True
+    
+    def update_orders_worksheet(self, created_orders):
+        """
+        Update the Orders worksheet with IdoSell order IDs.
+        For each row in Orders worksheet, check if column S ('ID') matches 'ref_id' 
+        from created_orders, and if so, put the corresponding 'idosell_id' into column L.
+        
+        Args:
+            created_orders (list): List of dictionaries with 'ref_id' and 'idosell_id' keys
+        
+        Returns:
+            dict: Dictionary containing the result status and statistics
+        """
+        try:
+            # Get all values from the Orders sheet
+            orders_data = self.orders_sheet.get_all_values()
+            
+            # Create a lookup dictionary for faster matching
+            ref_id_to_idosell = {order["ref_id"]: order["idosell_id"] for order in created_orders}
+            
+            # Track statistics
+            matched_count = 0
+            batch_update = []
+            
+            # Process each row starting from row 2 (index 1 in zero-based list) to skip header
+            for row_index, row in enumerate(orders_data[1:], start=2):
+                # Check if row has enough columns
+                if len(row) < 19:  # S column is at index 18
+                    continue
+                
+                # Get refurbed ID from column S (index 18)
+                ref_id = row[18]
+                
+                # Check if this ref_id exists in our created_orders lookup
+                if ref_id in ref_id_to_idosell:
+                    idosell_id = ref_id_to_idosell[ref_id]
+                    
+                    # Add update to batch for column L (index 11)
+                    batch_update.append({
+                        'range': f'L{row_index}',
+                        'values': [[idosell_id]]
+                    })
+                    matched_count += 1
+            
+            # Execute batch update if there are matches
+            if batch_update:
+                self.orders_sheet.batch_update(batch_update)
+                print(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs")
+                
+            return {
+                "status": "success",
+                "updated_count": matched_count,
+                "total_orders": len(created_orders)
+            }
+            
+        except Exception as e:
+            print(f"Error updating Orders worksheet: {str(e)}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
+    def _prepare_process_order(self, order_id):
+        """
+        Edit an order in the Refurbed API using the order ID and new data.
+        
+        Args:
+            order_id (str): The ID of the order to edit
+            
+        Returns:
+            json response: JSON response from the IdoSell API
+        """
+        new_data = {
+            'orderNote': "ZAMÓWIENIE TESTOWE",
+            'orderStatus': 'on_order'
+        }
+
+        # Use the IdoSell directly
+        result = self.idosell_api.edit_order(order_id=order_id, order_details=new_data)
+        
+        return result
+    
+    def process_orders(self):
+        """
+        Process all orders in the Config worksheet by extracting refurbed and idosell
+        order IDs from columns D and E respectively, and calling edit_order for each valid pair.
+        
+        Returns:
+            dict: Dictionary containing results with counts of processed, successful, and failed orders
+        """
+        try:
+            # Get all values from the Config sheet
+            config_data = self.config_sheet.get_all_values()
+            
+            processed_count = 0
+            success_count = 0
+            failed_count = 0
+            failed_orders = []
+            
+            # Start from row 2 (index 1) to skip header row
+            for row_index, row in enumerate(config_data[1:], start=2):
+                # Check if row has enough columns
+                if len(row) < 5:
+                    continue
+                    
+                # Extract refurbed_id and idosell_id from columns D and E (indices 3 and 4)
+                refurbed_id = row[3]
+                idosell_id = row[4]
+                
+                # Skip rows where either ID is empty
+                if not refurbed_id or not idosell_id:
+                    continue
+                
+                processed_count += 1
+                
+                # Call edit_order with the idosell_id
+                result = self._prepare_process_order(idosell_id)
+                print(result)
+                    
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': str(e)
+            }
+            
     def ids_push_all(self):
         """
         Push all orders from the Orders sheet to IdoSell.
@@ -115,33 +305,13 @@ class Integration:
 
             # Create orders in IdoSell
             created_orders = self.idosell_api.create_orders(pending_rows=processed_rows, ref_data=ref_selected_orders)
-            
+
             # Update Config sheet with the created orders
-            for order in created_orders:
-                ref_id = order["ref_id"]
-                new_order_id = order["idosell_id"]
-                
-                # Get all values from Config sheet
-                config_data = self.config_sheet.get_all_values()
+            self.update_config(created_orders=created_orders)
 
-                # Find first empty row in columns D & E
-                empty_row = None
-                for i, row in enumerate(config_data):
-                    # Check if we have enough columns and D or E is empty
-                    if len(row) >= 5 and (not row[3] or not row[4]):
-                        empty_row = i + 1  # Convert to 1-based index
-                        break
+            # Update Orders worksheet with IdoSell order IDs
+            self.update_orders_worksheet(created_orders=created_orders)
 
-                # If no empty row found, append to the end
-                if empty_row is None:
-                    empty_row = len(config_data) + 1
-
-                # Update the Config sheet with new values
-                self.config_sheet.update_cell(empty_row, 4, ref_id)  # Column D
-                self.config_sheet.update_cell(empty_row, 5, new_order_id)  # Column E
-
-                print(f"Updated Config sheet: added ref_id {ref_id} and order_id {new_order_id} in row {empty_row}")
-            
             return True
         else:
             print("No pending rows found to update")
