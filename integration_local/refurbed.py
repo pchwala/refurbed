@@ -143,7 +143,7 @@ class RefurbedAPI:
         sheet_header = [
             "checkbox",
             "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
-            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "notatki", "item_sku", "r_item_name",
+            "id_zestawu", "klasa", "klaw", "bat", "magazyn", "idosell_id", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
 
@@ -182,6 +182,8 @@ class RefurbedAPI:
                             vat_value = 0
                     else:
                         vat_value = self.vat_rates.get(country_code, "")
+            else:
+                vat_value = -1 # VAT marża
             
             # Extract offer_grading from offer_data if available
             klasa = ""
@@ -191,6 +193,14 @@ class RefurbedAPI:
                 klasa = offer_data.get("offer_grading", "")
                 # Check if battery has to be replaced
                 battery_replace = "TRUE" if offer_data.get("battery_condition", "") == "NEW" else "FALSE"
+
+            if is_iphone is False:
+                if klasa == "B":
+                    klasa = "A 2"
+                elif klasa == "C":
+                    klasa = "A-"
+            else:
+                klasa = ""
 
             row = [
                 "FALSE",  # checkbox
@@ -204,7 +214,7 @@ class RefurbedAPI:
                 "FALSE",  # klaw 
                 battery_replace,  # bat 
                 "",  # magazyn
-                "",  # notatki
+                "",  # idosell_id
                 item.get("sku", ""),
                 item_name,
                 order.get("customer_email", ""),

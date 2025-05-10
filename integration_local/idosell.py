@@ -113,6 +113,11 @@ class IdoSellAPI:
         # If total charged is more than charged for the first item then there is more items in the order
         if ref_data['total_charged'] != ref_data['items'][0]['total_charged']:
             raise Exception(f"Order {ref_id} has more than one item. Please check the order in Refurbed.")
+        
+        # Vat marża = IPHONE
+        is_iphone = False
+        if data_row[5] == '-1':
+            is_iphone = True
 
         endpoint = f"{self.base_url}/orders/orders"
         
@@ -120,7 +125,7 @@ class IdoSellAPI:
         # We need to check if the file exists, otherwise load from a default template
         create_body = None
         try:
-            with open('create_body.json', 'r') as file:
+            with open('./integration_local/create_body.json', 'r') as file:
                 create_body = json.load(file)
         except FileNotFoundError:
             raise Exception(f"Error creating order: {'create_body.json'} not found.")
@@ -139,9 +144,13 @@ class IdoSellAPI:
         id_matki = self._prepare_product_details(order, data_row, bundle)
         
         # Prepare order notes
-        notes = self._prepare_order_notes(data_row, id_matki)
-        order['products'][0]['remarksToProduct'] = notes
-        order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
+        if is_iphone is False:
+            notes = self._prepare_order_notes(data_row, id_matki)
+            order['products'][0]['remarksToProduct'] = notes
+            order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
+        else:
+            if data_row[9] == "TRUE":
+                order['products'][0]['remarksToProduct'] = "Wymiana baterii na 100%"
 
         # Add the API request and response handling
         response = requests.post(endpoint, headers=self.ids_headers, json=create_body)
@@ -195,15 +204,19 @@ class IdoSellAPI:
         """
         Prepare product and bundle details
         """
+        vat_value = data_row[5]
+        if vat_value == '-1':
+            vat_value = '0'
+
         product = order['products']
         product[0] = {
-            "productId": data_row[6],
+            "productId": data_row[6], 
             "sizeId": "uniw",
             "stockId": data_row[10].lstrip('M') if data_row[10] else "",
             "productQuantity": 1,
             "productQuantityOperationType": "add",
             "productRetailPrice": data_row[4],
-            "productVat": data_row[5],
+            "productVat": vat_value,
             "remarksToProduct": ""
         }
 
@@ -211,7 +224,8 @@ class IdoSellAPI:
         # If bundle is empty, use only product id
         # If bundle is not empty, use product id and add bundle items
         if not bundle:
-            product[0]['remarksToProduct'] = "Brak zestawu"
+            #product[0]['remarksToProduct'] = "Brak zestawu"
+            pass
         else:
             # Make a list of bundle items and append them to the product
             product_bundle_items = []
@@ -247,11 +261,12 @@ class IdoSellAPI:
         # Create order notes
         notes = "ID matki: " + str(id_matki) + "\n"
         notes += "Klasa " + data_row[7] + "\n"
-        notes += "Klawiatura: " + keyboard_layout + "\n"
         notes += "Dysk: " + hard_drive + "\n"
 
         if data_row[8] == "TRUE":
-            notes += "Wymiana klawiatury\n"
+            notes += "Wymiana klawiatury " + keyboard_layout + "\n"
+        else:
+            notes += "Klawiatura: " + keyboard_layout + "\n"
         if data_row[9] == "TRUE":
             notes += "Wymiana baterii\n"
             
@@ -264,10 +279,16 @@ class IdoSellAPI:
         endpoint = f"{self.base_url}/orders/orders"
         
         try:
-            with open('edit_body.json', 'r') as file:
+            with open('./integration_local/edit_body.json', 'r') as file:
                 edit_body = json.load(file)
         except FileNotFoundError:
             raise Exception(f"Error editing order: {'edit_body.json'} not found.")
+        
+        order = edit_body['params']['orders'][0]
+
+        order['orderSerialNumber'] = order_id
+        order['orderStatus'] = order_details['orderStatus']
+        order['orderNote'] = order_details['orderNote']
         
         response = requests.put(endpoint, headers=self.ids_headers, json=edit_body)
         
