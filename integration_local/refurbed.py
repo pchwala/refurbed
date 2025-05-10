@@ -142,7 +142,7 @@ class RefurbedAPI:
     def process_orders(self, orders):
         sheet_header = [
             "checkbox",
-            "r_state", "r_country_code", "r_currency_code", "r_total_charged", "vat",
+            "r_state", "r_country_code", "r_currency_code", "r_total_paid", "vat",
             "id_zestawu", "klasa", "klaw", "bat", "magazyn", "idosell_id", "item_sku", "r_item_name",
             "r_customer_email", "r_first_name", "r_family_name", "r_phone_number", "ID"
         ]
@@ -207,7 +207,7 @@ class RefurbedAPI:
                 order.get("state", ""),
                 country_code,
                 order.get("settlement_currency_code", ""),
-                order.get("settlement_total_charged", ""),
+                order.get("settlement_total_paid", ""),
                 vat_value,
                 "",  # id_zestawu
                 klasa,  # klasa - now contains offer_grading
