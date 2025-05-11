@@ -12,6 +12,10 @@ import sys
 from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
 from idosell import IdoSellAPI
+import time
+
+# ZAMOWIENIA TESTOWE
+# zamowienie 2szt na firme - ids: 338976      ref: 13410452
 
 app = Flask(__name__)
 
@@ -102,6 +106,12 @@ class Integration:
         """
         Update the Config sheet with the created orders ids
         """
+
+        # If there are no created orders, return
+        if not created_orders:
+            print("No created orders to update in Config sheet")
+            return False
+
         config = self.config_sheet.get_all_values()
         # Find empty rows in the Config sheet
         empty_rows = self.get_config_rows(needed=len(created_orders), data=config)
@@ -155,6 +165,11 @@ class Integration:
         Returns:
             dict: Dictionary containing the result status and statistics
         """
+        # If there are no created orders, return
+        if not created_orders:
+            print("No created orders to update in Orders sheet")
+            return False
+
         try:
             # Get all values from the Orders sheet
             orders_data = self.orders_sheet.get_all_values()
@@ -180,9 +195,16 @@ class Integration:
                     idosell_id = ref_id_to_idosell[ref_id]
                     
                     # Add update to batch for column L (index 11)
+                    # Update column L with idosell_id
                     batch_update.append({
                         'range': f'L{row_index}',
                         'values': [[idosell_id]]
+                    })
+                    
+                    # Update column B (r_state) to ACCEPTED
+                    batch_update.append({
+                        'range': f'B{row_index}',
+                        'values': [['ACCEPTED']]
                     })
                     matched_count += 1
             
@@ -203,6 +225,30 @@ class Integration:
                 "status": "error",
                 "message": str(e)
             }
+        
+    def set_states_to_accepted(self, created_orders):
+        """
+        Update the state of all items in the provided orders to 'ACCEPTED'.
+        
+        Args:
+            created_orders (list): A list of order dictionaries, each containing 
+                                  a 'ref_id' key that references the order in the Refurbed system.
+        
+        Note:
+            This method introduces a 0.2 second delay between API calls to avoid rate limiting,
+            as batch updates don't seem to work properly.
+        """
+        ref_orders = []
+        for order in created_orders:
+            ref_orders.append(order["ref_id"])
+
+        items_list = self.refurbed_api.list_orders_items(ref_orders)
+
+        for item in items_list:
+            self.refurbed_api.change_state(order_item_id=item, state="ACCEPTED")
+            # Add 1/5 second delay between API calls to avoid rate limiting
+            # Idk why BatchUpdate doesn't work but it doesn't
+            time.sleep(0.2)
     
     def ids_push_all(self):
         """
@@ -214,21 +260,6 @@ class Integration:
 
         # Set r_state to ACCEPTED
         if pending_rows:
-            # Prepare orders worksheet batch update
-            batch_update = []
-            for row in pending_rows:
-                # Set r_state column (index 1, column B) to ACCEPTED
-                batch_update.append({
-                    'range': f'B{row}',
-                    'values': [['ACCEPTED']]
-                })
-            
-            # Execute batch update if there are pending rows
-            if batch_update:
-                self.orders_sheet.batch_update(batch_update)
-                print(f"Updated {len(pending_rows)} rows to ACCEPTED status")
-
-
             ref_ids = []    # List of pending refurbed order IDs
 
             # List of rows in dict format where
@@ -251,8 +282,14 @@ class Integration:
             # Update Config sheet with the created orders
             self.update_config(created_orders=created_orders)
 
+            # Set states to ACCEPTED in Refurbed
+            self.set_states_to_accepted(created_orders=created_orders)
+
             # Update Orders worksheet with IdoSell order IDs
             self.update_orders_worksheet(created_orders=created_orders)
+
+            # Ftech states from refurbed to worksheet to make sure they are up to date
+            updated = api.refurbed_api.update_states()
 
             return True
         else:
@@ -271,7 +308,7 @@ class Integration:
             json response: JSON response from the IdoSell API
         """
         new_data = {
-            'orderNote': "ZAMÓWIENIE TESTOWE",
+            'orderNote': "ZAMÓWIENIE PRZYPADKOWO POMIESZANE Z KACPREM",
             'orderStatus': 'canceled'
         }
 
@@ -447,12 +484,16 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-#ret = api.ids_push_all()
+ret = api.ids_push_all()
 
-ret = api.process_orders()
+#ret = api.process_orders()
 
 #ret = api.idosell_api.add_payment(339335, 206.67)
 
 #ret = api.idosell_api.confirm_payment(339335)
+
+#ret = api.refurbed_api.change_state(order_item_id="17412151", state="ACCEPTED")
+
+#ret = api.refurbed_api.list_orders_items(["13582047", "13582109", "13581259", "13410452"])
 
 print(ret)

@@ -109,9 +109,19 @@ class IdoSellAPI:
                     "idosell_id": new_order_id
                 })
 
+                # Vat marża = IPHONE
+                is_iphone = False
+                if data_row[5] == '-1':
+                    is_iphone = True
+
+                if is_iphone is False:
+                    order_status = "on_order"
+                else:
+                    order_status = "wait_for_packaging"
+
                 # Edit order with additional details
                 order_details = {
-                    "orderStatus": "on_order",
+                    "orderStatus": order_status,
                     "orderNote": order_request['products'][0]['remarksToProduct'],
                     "orderSerialNumber": new_order_id
                 }
@@ -122,13 +132,14 @@ class IdoSellAPI:
                 }
 
                 # Add payment to the order
-                #payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
+                payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
 
                 # Confirm payment
-                #payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
+                payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
 
                 # Change order note and status
                 edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
+
 
                 # Return information about created order to be handled by the caller
                 # Config sheet updates are now the responsibility of the caller
@@ -352,15 +363,20 @@ class IdoSellAPI:
         """
         endpoint = f"{self.base_url}/payments/payments"
         
-        payload = { "params": {
-            "sourceType": "order",
-            "sourceId": order_id,
-            "value": value,
-            "account": "PL54249000050000460097455936",
-            "type": "advance",
-            "paymentFormId": 1
-
-        } }
+        payload = { 
+            "params": {
+                "sourceType": "order",
+                "sourceId": order_id,
+                "value": value,
+                "account": "PL54249000050000460097455936",
+                "type": "advance",
+                "paymentFormId": 1
+            },
+            "settings": {
+                "sendMail": False,
+                "sendSms": False
+            }
+        }
 
         response = requests.post(endpoint, headers=self.ids_headers, json=payload)
         

@@ -80,7 +80,9 @@ class IdoSellAPI:
         if response.status_code == 200:
             return response.json()
         else:
-            self.logger.error(f"Error fetching product: {response.status_code}, {response.text}")
+            error_msg = f"Error fetching product: {response.status_code}, {response.text}"
+            print(error_msg)
+            self.logger.error(error_msg)
             raise Exception(f"Error: {response.status_code, {response.text}}")
             
     def create_orders(self, pending_rows=None, ref_data=None):
@@ -104,7 +106,9 @@ class IdoSellAPI:
                 # order_request is used for further editing of the order
                 order_request = new_order[1]
                 new_order = new_order[0]
-                self.logger.info(f"Created new order in IdoSell: {new_order}")
+                info_msg = f"Created new order in IdoSell: {new_order}"
+                self.logger.info(info_msg)
+                print(info_msg)
                 new_order_id = new_order['results']['ordersResults'][0]['orderSerialNumber']
                 self.logger.info(f"New order ID: {new_order_id}")
                 
@@ -140,7 +144,9 @@ class IdoSellAPI:
                 # Config sheet updates are now the responsibility of the caller
                 
             except Exception as e:
-                self.logger.error(f"Failed to create order for {ref_id}: {e}")
+                error_msg = f"Failed to create order for {ref_id}: {e}"
+                print(error_msg)
+                self.logger.error(error_msg)
                 continue
 
         return created_orders
@@ -168,8 +174,10 @@ class IdoSellAPI:
             with open('./create_body.json', 'r') as file:
                 create_body = json.load(file)
         except FileNotFoundError:
-            self.logger.error(f"Error creating order: {'create_body.json'} not found.")
-            raise Exception(f"Error creating order: {'create_body.json'} not found.")
+            error_msg = f"Error creating order: {'create_body.json'} not found."
+            print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
             
         # Create a shorthand variable for the nested dictionary
         order = create_body['params']['orders'][0]
@@ -200,8 +208,10 @@ class IdoSellAPI:
             # Return response and order details send via request
             return [response.json(), order]
         else:
-            self.logger.error(f"Error creating order: {response.status_code}, {response.text}")
-            raise Exception(f"Error creating order: {response.status_code}, {response.text}")
+            error_msg = f"Error creating order: {response.status_code}, {response.text}"
+            print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
     
     def _prepare_order_details(self, order, ref_data, data_row):
         """
@@ -228,8 +238,10 @@ class IdoSellAPI:
         client_data['clientZipCode'] = invoice_address['post_code']
         client_data['clientCity'] = invoice_address['town']
         client_data['clientCountry'] = self.country_names[invoice_address['country_code']]
-        client_data['clientEmail'] = ref_data['customer_email']
-        client_data['clientPhone1'] = invoice_address.get('phone_number', '')
+        #client_data['clientEmail'] = ref_data['customer_email']
+        #client_data['clientPhone1'] = invoice_address.get('phone_number', '')
+        client_data['clientEmail'] = "Janusz@testowy.com"
+        client_data['clientPhone1'] = "500100100"
         # Set language ID if available for the country code
         if invoice_address['country_code'] in self.lang_ids:
             client_data['langId'] = self.lang_ids[invoice_address['country_code']]
@@ -252,7 +264,8 @@ class IdoSellAPI:
         delivery_address['clientDeliveryAddressCity'] = shipping_address['town']
         delivery_address['clientDeliveryAddressCountry'] = self.country_names[shipping_address['country_code']]
         delivery_address['clientDeliveryAddressCountryId'] = shipping_address['country_code']
-        delivery_address['clientDeliveryAddressPhone1'] = shipping_address.get('phone_number')
+        #delivery_address['clientDeliveryAddressPhone1'] = shipping_address.get('phone_number')
+        delivery_address['clientDeliveryAddressPhone1'] = "500100100"
 
         if 'company_name' in shipping_address:
             delivery_address['clientDeliveryAddressFirm'] = shipping_address['company_name']
@@ -339,8 +352,10 @@ class IdoSellAPI:
             with open('./edit_body.json', 'r') as file:
                 edit_body = json.load(file)
         except FileNotFoundError:
-            self.logger.error(f"Error editing order: {'edit_body.json'} not found.")
-            raise Exception(f"Error editing order: {'edit_body.json'} not found.")
+            error_msg = f"Error editing order: {'edit_body.json'} not found."
+            print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
         
         order = edit_body['params']['orders'][0]
 
@@ -353,8 +368,10 @@ class IdoSellAPI:
         if response.status_code in [200, 207]:
             return response.json()
         else:
-            self.logger.error(f"Error editing order: {response.status_code}, {response.text}")
-            raise Exception(f"Error editing order: {response.status_code}, {response.text}")
+            error_msg = f"Error editing order: {response.status_code}, {response.text}"
+            print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
         
     def add_payment(self, order_id, value=0):
         """
@@ -377,8 +394,10 @@ class IdoSellAPI:
         if response.status_code in [200, 207]:
             return response.json()
         else:
-            self.logger.error(f"Error adding payment: {response.status_code}, {response.text}")
-            raise Exception(f"Error adding payment: {response.status_code}, {response.text}")
+            error_msg = f"Error adding payment: {response.status_code}, {response.text}"
+            print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
         
 
     def confirm_payment(self, order_id):
@@ -403,5 +422,7 @@ class IdoSellAPI:
         if response.status_code in [200, 207]:
             return response.json()
         else:
-            self.logger.error(f"Error confirming payment: {response.status_code}, {response.text}")
-            raise Exception(f"Error confirming payment: {response.status_code}, {response.text}")
+            error_msg = f"Error confirming payment: {response.status_code}, {response.text}"
+            print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)

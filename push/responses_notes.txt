@@ -4,6 +4,7 @@ realizowane = on_order
 oczekuje na wplate = payment_waiting
 anulowane przez klienta = canceled
 wyslane = finished
+oczekuje na termin pakowanie = wait_for_packaging
 
 # Step 1: Get an identity token
 TOKEN=$(gcloud auth print-identity-token)

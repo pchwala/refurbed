@@ -193,16 +193,23 @@ class Integration:
                     idosell_id = ref_id_to_idosell[ref_id]
                     
                     # Add update to batch for column L (index 11)
+                    # Update column L with idosell_id
                     batch_update.append({
                         'range': f'L{row_index}',
                         'values': [[idosell_id]]
+                    })
+                    
+                    # Update column B (r_state) to ACCEPTED
+                    batch_update.append({
+                        'range': f'B{row_index}',
+                        'values': [['ACCEPTED']]
                     })
                     matched_count += 1
             
             # Execute batch update if there are matches
             if batch_update:
                 self.orders_sheet.batch_update(batch_update)
-                self.logger.info(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs")
+                self.logger.info(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs and changed r_state to ACCEPTED")
                 
             return {
                 "status": "success",
@@ -291,21 +298,7 @@ class Integration:
 
         # Set r_state to ACCEPTED
         if pending_rows:
-            # Prepare orders worksheet batch update
-            batch_update = []
-            for row in pending_rows:
-                # Set r_state column (index 1, column B) to ACCEPTED
-                batch_update.append({
-                    'range': f'B{row}',
-                    'values': [['ACCEPTED']]
-                })
             
-            # Execute batch update if there are pending rows
-            if batch_update:
-                self.orders_sheet.batch_update(batch_update)
-                self.logger.info(f"Updated {len(pending_rows)} rows to ACCEPTED status")
-
-
             ref_ids = []    # List of pending refurbed order IDs
 
             # List of rows in dict format where

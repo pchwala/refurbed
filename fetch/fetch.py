@@ -300,12 +300,12 @@ class RefurbedAPI:
         self.save_backup(orders)
         
         # Process orders
-        sheet_rows, last_id = self.process_orders(orders)
+        #sheet_rows, last_id = self.process_orders(orders)
         
         # Update sheets - but don't update the last_id in config
         # since this is just fetching the latest rather than continuing from previous
-        if update:
-            self.update_sheets(sheet_rows, "")
+        #if update:
+        #    self.update_sheets(sheet_rows, "")
         
         print(f"Fetched latest {len(orders)} orders")
 
@@ -381,4 +381,4 @@ if __name__ == "__main__":
 
     #refurbed_api.fetch_orders()
     #refurbed_api.update_states()
-    refurbed_api.fetch_latest_orders(update=True, n=50)
+    refurbed_api.fetch_latest_orders(update=True, n=100)
