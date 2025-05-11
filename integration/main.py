@@ -11,6 +11,9 @@ from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
 from idosell import IdoSellAPI
 
+import logging
+from cloud_logging import CloudLogger
+
 app = Flask(__name__)
 
 class Integration:
@@ -47,6 +50,10 @@ class Integration:
             config_sheet=self.config_sheet
         )
 
+        # Initialize logger
+        self.logger = CloudLogger(instance_id="integration_main", log_level=logging.INFO).get_logger()
+        self.logger.info("Integration class initialized successfully")
+
     def get_pending_rows(self, data=None):
         """
         Check each row in the orders sheet and return row numbers where:
@@ -59,20 +66,23 @@ class Integration:
         """
         
         pending_rows = []
-
-        # Process each row starting from row 2 (index 1 in zero-based list)
-        for row_index, row in enumerate(data[1:], start=2):
-            # Check if row has data
-            if not row:
-                break
+        
+        try:
+            # Process each row starting from row 2 (index 1 in zero-based list)
+            for row_index, row in enumerate(data[1:], start=2):
+                # Check if row has data
+                if not row:
+                    break
+                    
+                # Check if checkbox is TRUE and r_state is NEW
+                checkbox_value = row[0].upper()  # Convert to uppercase for case-insensitive comparison
+                r_state_value = row[1]
                 
-            # Check if checkbox is TRUE and r_state is NEW
-            checkbox_value = row[0].upper()  # Convert to uppercase for case-insensitive comparison
-            r_state_value = row[1]
+                if checkbox_value == "TRUE" and r_state_value == "NEW":
+                    pending_rows.append(row_index)
+        except Exception as e:
+            self.logger.error(f"Error processing rows in get_pending_rows: {str(e)}")
             
-            if checkbox_value == "TRUE" and r_state_value == "NEW":
-                pending_rows.append(row_index)
-                
         return pending_rows
     
     def get_config_rows(self, needed=0, data=None):
@@ -80,63 +90,71 @@ class Integration:
         Return the list of row indexes that you can write config data to.
         If there is less empty rows than needed, then return None.
         """
-        # Process each row starting from row 2 (index 1 in zero-based list)
-        empty_rows = []
-        for row_index, row in enumerate(data[1:], start=2):
-            # Check if row has data
-            if row[3] == '' and row[4] == '':
-                empty_rows.append(row_index)
-                needed -= 1
-                if needed == 0:
-                    return empty_rows
-        
-        # Return the collected empty rows even if we didn't find enough
-        return empty_rows if empty_rows else None
+        try:
+            # Process each row starting from row 2 (index 1 in zero-based list)
+            empty_rows = []
+            for row_index, row in enumerate(data[1:], start=2):
+                # Check if row has data
+                if row[3] == '' and row[4] == '':
+                    empty_rows.append(row_index)
+                    needed -= 1
+                    if needed == 0:
+                        return empty_rows
+            
+            # Return the collected empty rows even if we didn't find enough
+            return empty_rows if empty_rows else None
+        except Exception as e:
+            self.logger.error(f"Error in get_config_rows: {str(e)}")
+            return None
                 
     def update_config(self, created_orders):
         """
         Update the Config sheet with the created orders ids
         """
-        config = self.config_sheet.get_all_values()
-        # Find empty rows in the Config sheet
-        empty_rows = self.get_config_rows(needed=len(created_orders), data=config)
-        
-        # If there are empty rows available, use them
-        if empty_rows and len(empty_rows) >= len(created_orders):
-            batch_update = []
-            for i, row in enumerate(empty_rows[:len(created_orders)], start=0):
-                # Set ref_id and idosell_id columns (D and E)
-                batch_update.append({
-                    'range': f'D{row}:E{row}',
-                    'values': [[created_orders[i]["ref_id"], created_orders[i]["idosell_id"]]]
-                })
-            # Execute batch update 
-            if batch_update:
-                self.config_sheet.batch_update(batch_update)
-                print(f"Updated {len(batch_update)} rows in Config sheet with created orders")
-        else:
-            # Not enough empty rows, append new rows
-            # Get total number of rows to calculate where to insert
-            num_rows = len(config)
+        try:
+            config = self.config_sheet.get_all_values()
+            # Find empty rows in the Config sheet
+            empty_rows = self.get_config_rows(needed=len(created_orders), data=config)
             
-            batch_update = []
-            for i, c_order in enumerate(created_orders):
-                row_num = num_rows + i + 1  # +1 because sheet is 1-indexed
-                batch_update.append({
-                    'range': f'D{row_num}:E{row_num}',
-                    'values': [[c_order["ref_id"], c_order["idosell_id"]]]
-                })
+            # If there are empty rows available, use them
+            if empty_rows and len(empty_rows) >= len(created_orders):
+                batch_update = []
+                for i, row in enumerate(empty_rows[:len(created_orders)], start=0):
+                    # Set ref_id and idosell_id columns (D and E)
+                    batch_update.append({
+                        'range': f'D{row}:E{row}',
+                        'values': [[created_orders[i]["ref_id"], created_orders[i]["idosell_id"]]]
+                    })
+                # Execute batch update 
+                if batch_update:
+                    self.config_sheet.batch_update(batch_update)
+                    self.logger.info(f"Updated {len(batch_update)} rows in Config sheet with created orders")
+            else:
+                # Not enough empty rows, append new rows
+                # Get total number of rows to calculate where to insert
+                num_rows = len(config)
+                
+                batch_update = []
+                for i, c_order in enumerate(created_orders):
+                    row_num = num_rows + i + 1  # +1 because sheet is 1-indexed
+                    batch_update.append({
+                        'range': f'D{row_num}:E{row_num}',
+                        'values': [[c_order["ref_id"], c_order["idosell_id"]]]
+                    })
+                
+                # First append empty rows
+                empty_data = [["", "", "", "", ""] for _ in range(len(created_orders))]
+                self.config_sheet.append_rows(empty_data)
+                
+                # Then update the specific cells in columns D and E
+                if batch_update:
+                    self.config_sheet.batch_update(batch_update)
+                    self.logger.info(f"Added {len(batch_update)} new rows to Config sheet with created orders")
             
-            # First append empty rows
-            empty_data = [["", "", "", "", ""] for _ in range(len(created_orders))]
-            self.config_sheet.append_rows(empty_data)
-            
-            # Then update the specific cells in columns D and E
-            if batch_update:
-                self.config_sheet.batch_update(batch_update)
-                print(f"Added {len(batch_update)} new rows to Config sheet with created orders")
-
-        return True
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating config sheet: {str(e)}")
+            return False
     
     def update_orders_worksheet(self, created_orders):
         """
@@ -184,7 +202,7 @@ class Integration:
             # Execute batch update if there are matches
             if batch_update:
                 self.orders_sheet.batch_update(batch_update)
-                print(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs")
+                self.logger.info(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs")
                 
             return {
                 "status": "success",
@@ -193,7 +211,7 @@ class Integration:
             }
             
         except Exception as e:
-            print(f"Error updating Orders worksheet: {str(e)}")
+            self.logger.error(f"Error updating Orders worksheet: {str(e)}")
             return {
                 "status": "error",
                 "message": str(e)
@@ -254,9 +272,10 @@ class Integration:
                 
                 # Call edit_order with the idosell_id
                 result = self._prepare_process_order(idosell_id)
-                print(result)
+                self.logger.info(result)
                     
         except Exception as e:
+            self.logger.error(f"Error processing orders: {str(e)}")
             return {
                 'status': 'error',
                 'message': str(e)
@@ -284,7 +303,7 @@ class Integration:
             # Execute batch update if there are pending rows
             if batch_update:
                 self.orders_sheet.batch_update(batch_update)
-                print(f"Updated {len(pending_rows)} rows to ACCEPTED status")
+                self.logger.info(f"Updated {len(pending_rows)} rows to ACCEPTED status")
 
 
             ref_ids = []    # List of pending refurbed order IDs
@@ -301,7 +320,7 @@ class Integration:
 
             # Fetch selected orders from Refurbed directly
             ref_selected_orders = self.fetch_selected_orders(ref_ids)
-            print(f"Fetched selected orders from Refurbed: {len(ref_selected_orders.get('orders', []))} orders")
+            self.logger.info(f"Fetched selected orders from Refurbed: {len(ref_selected_orders.get('orders', []))} orders")
 
             # Create orders in IdoSell
             created_orders = self.idosell_api.create_orders(pending_rows=processed_rows, ref_data=ref_selected_orders)
@@ -314,7 +333,7 @@ class Integration:
 
             return True
         else:
-            print("No pending rows found to update")
+            self.logger.info("No pending rows found to update")
             return False
 
     def fetch_selected_orders(self, order_ids):
@@ -401,6 +420,7 @@ def fetch_orders():
         return render_template('index.html', output=output)
     except Exception as e:
         error_msg = f"Błąd podczas pobierania zamówień: {str(e)}"
+        logging.error(error_msg)
         return render_template('index.html', output=error_msg)
 
 
@@ -416,6 +436,7 @@ def update_states():
         return render_template('index.html', output=f"Zaktualizowano {updated} zamówień.")
     except Exception as e:
         error_msg = f"Błąd podczas aktualizacji stanów: {str(e)}"
+        logging.error(error_msg)
         return render_template('index.html', output=error_msg)
 
 
@@ -430,7 +451,7 @@ def push_orders_endpoint():
             return jsonify({"message": "No orders to push or push failed.", "details": output}), 200
     except Exception as e:
         error_msg = f"Error: {str(e)}"
-        print(error_msg)
+        logging.error(error_msg)
         return jsonify({"error": error_msg}), 500
 
 

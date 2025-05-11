@@ -2,6 +2,8 @@ import os
 import requests
 import json
 
+import logging
+from cloud_logging import CloudLogger
 
 class IdoSellAPI:
     def __init__(self, api_key=None):
@@ -61,6 +63,8 @@ class IdoSellAPI:
             "IT": "ita",
             "ES": "spa"
         }
+
+        self.logger = CloudLogger(instance_id="integration_idosell", log_level=logging.INFO).get_logger()
         
     def get_product(self, product_id=None):
         """
@@ -76,6 +80,7 @@ class IdoSellAPI:
         if response.status_code == 200:
             return response.json()
         else:
+            self.logger.error(f"Error fetching product: {response.status_code}, {response.text}")
             raise Exception(f"Error: {response.status_code, {response.text}}")
             
     def create_orders(self, pending_rows=None, ref_data=None):
@@ -99,9 +104,9 @@ class IdoSellAPI:
                 # order_request is used for further editing of the order
                 order_request = new_order[1]
                 new_order = new_order[0]
-                print(f"Created new order in IdoSell: {new_order}")
+                self.logger.info(f"Created new order in IdoSell: {new_order}")
                 new_order_id = new_order['results']['ordersResults'][0]['orderSerialNumber']
-                print(f"New order ID: {new_order_id}")
+                self.logger.info(f"New order ID: {new_order_id}")
                 
                 # Track created orders
                 created_orders.append({
@@ -135,7 +140,7 @@ class IdoSellAPI:
                 # Config sheet updates are now the responsibility of the caller
                 
             except Exception as e:
-                print(f"Failed to create order for {ref_id}: {e}")
+                self.logger.error(f"Failed to create order for {ref_id}: {e}")
                 continue
 
         return created_orders
@@ -163,6 +168,7 @@ class IdoSellAPI:
             with open('./create_body.json', 'r') as file:
                 create_body = json.load(file)
         except FileNotFoundError:
+            self.logger.error(f"Error creating order: {'create_body.json'} not found.")
             raise Exception(f"Error creating order: {'create_body.json'} not found.")
             
         # Create a shorthand variable for the nested dictionary
@@ -194,6 +200,7 @@ class IdoSellAPI:
             # Return response and order details send via request
             return [response.json(), order]
         else:
+            self.logger.error(f"Error creating order: {response.status_code}, {response.text}")
             raise Exception(f"Error creating order: {response.status_code}, {response.text}")
     
     def _prepare_order_details(self, order, ref_data, data_row):
@@ -332,6 +339,7 @@ class IdoSellAPI:
             with open('./edit_body.json', 'r') as file:
                 edit_body = json.load(file)
         except FileNotFoundError:
+            self.logger.error(f"Error editing order: {'edit_body.json'} not found.")
             raise Exception(f"Error editing order: {'edit_body.json'} not found.")
         
         order = edit_body['params']['orders'][0]
@@ -345,6 +353,7 @@ class IdoSellAPI:
         if response.status_code in [200, 207]:
             return response.json()
         else:
+            self.logger.error(f"Error editing order: {response.status_code}, {response.text}")
             raise Exception(f"Error editing order: {response.status_code}, {response.text}")
         
     def add_payment(self, order_id, value=0):
@@ -368,6 +377,7 @@ class IdoSellAPI:
         if response.status_code in [200, 207]:
             return response.json()
         else:
+            self.logger.error(f"Error adding payment: {response.status_code}, {response.text}")
             raise Exception(f"Error adding payment: {response.status_code}, {response.text}")
         
 
@@ -393,4 +403,5 @@ class IdoSellAPI:
         if response.status_code in [200, 207]:
             return response.json()
         else:
+            self.logger.error(f"Error confirming payment: {response.status_code}, {response.text}")
             raise Exception(f"Error confirming payment: {response.status_code}, {response.text}")

@@ -272,7 +272,7 @@ class Integration:
         """
         new_data = {
             'orderNote': "ZAMÓWIENIE TESTOWE",
-            'orderStatus': 'on_order'
+            'orderStatus': 'canceled'
         }
 
         # Use the IdoSell directly
@@ -447,9 +447,9 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-ret = api.ids_push_all()
+#ret = api.ids_push_all()
 
-#ret = api.process_orders()
+ret = api.process_orders()
 
 #ret = api.idosell_api.add_payment(339335, 206.67)
 

@@ -23,6 +23,7 @@ COPY edit_body.json .
 COPY refurbed.py .
 COPY idosell.py .
 COPY main.py .
+COPY cloud_logging.py .
 
 # Copy templates directory for Flask application
 COPY templates/ ./templates/
