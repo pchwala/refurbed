@@ -10,6 +10,7 @@ import io
 from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
 from idosell import IdoSellAPI
+import time
 
 import logging
 from cloud_logging import CloudLogger
@@ -111,6 +112,11 @@ class Integration:
         """
         Update the Config sheet with the created orders ids
         """
+        # If there are no created orders, return
+        if not created_orders:
+            self.logger.info("No created orders to update in Config sheet")
+            return False
+            
         try:
             config = self.config_sheet.get_all_values()
             # Find empty rows in the Config sheet
@@ -168,6 +174,11 @@ class Integration:
         Returns:
             dict: Dictionary containing the result status and statistics
         """
+        # If there are no created orders, return
+        if not created_orders:
+            self.logger.info("No created orders to update in Orders sheet")
+            return False
+            
         try:
             # Get all values from the Orders sheet
             orders_data = self.orders_sheet.get_all_values()
@@ -224,6 +235,32 @@ class Integration:
                 "message": str(e)
             }
     
+    def set_states_to_accepted(self, created_orders):
+        """
+        Update the state of all items in the provided orders to 'ACCEPTED'.
+        
+        Args:
+            created_orders (list): A list of order dictionaries, each containing 
+                                  a 'ref_id' key that references the order in the Refurbed system.
+        
+        Note:
+            This method introduces a 0.2 second delay between API calls to avoid rate limiting,
+            as batch updates don't seem to work properly.
+        """
+        ref_orders = []
+        for order in created_orders:
+            ref_orders.append(order["ref_id"])
+
+        self.logger.info(f"Setting state to ACCEPTED for orders: {ref_orders}")
+        
+        items_list = self.refurbed_api.list_orders_items(ref_orders)
+
+        for item in items_list:
+            self.refurbed_api.change_state(order_item_id=item, state="ACCEPTED")
+            # Add 1/5 second delay between API calls to avoid rate limiting
+            # Idk why BatchUpdate doesn't work but it doesn't
+            time.sleep(0.2)
+            
     def _prepare_process_order(self, order_id):
         """
         Edit an order in the Refurbed API using the order ID and new data.
@@ -321,8 +358,15 @@ class Integration:
             # Update Config sheet with the created orders
             self.update_config(created_orders=created_orders)
 
+            # Set states to ACCEPTED in Refurbed
+            self.set_states_to_accepted(created_orders=created_orders)
+
             # Update Orders worksheet with IdoSell order IDs
             self.update_orders_worksheet(created_orders=created_orders)
+
+            # Fetch states from refurbed to worksheet to make sure they are up to date
+            updated = self.refurbed_api.update_states()
+            self.logger.info(f"Updated {updated} order states after processing")
 
             return True
         else:

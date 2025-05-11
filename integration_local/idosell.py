@@ -109,19 +109,9 @@ class IdoSellAPI:
                     "idosell_id": new_order_id
                 })
 
-                # Vat marża = IPHONE
-                is_iphone = False
-                if data_row[5] == '-1':
-                    is_iphone = True
-
-                if is_iphone is False:
-                    order_status = "on_order"
-                else:
-                    order_status = "wait_for_packaging"
-
-                # Edit order with additional details
+                # Additional order details
                 order_details = {
-                    "orderStatus": order_status,
+                    "orderStatus": "on_order",
                     "orderNote": order_request['products'][0]['remarksToProduct'],
                     "orderSerialNumber": new_order_id
                 }
@@ -131,18 +121,24 @@ class IdoSellAPI:
                     "value": data_row[4]
                 }
 
+                # Change order note and status
+                edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
+
                 # Add payment to the order
                 payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
 
                 # Confirm payment
                 payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
 
-                # Change order note and status
-                edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
+                # Vat marża = IPHONE
+                is_iphone = False
+                if data_row[5] == '-1':
+                    is_iphone = True
 
-
-                # Return information about created order to be handled by the caller
-                # Config sheet updates are now the responsibility of the caller
+                # If the order is an iPhone, set the order status to "wait_for_packaging"
+                if is_iphone is True:
+                    order_details["orderStatus"] = "wait_for_packaging"
+                    edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
                 
             except Exception as e:
                 print(f"Failed to create order for {ref_id}: {e}")

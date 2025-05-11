@@ -395,7 +395,8 @@ class RefurbedAPI:
         r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
 
         # Create payload for fetching latest orders
-        payload = self.payload_all()
+        #payload = self.payload_all()
+        payload = self.payload_last(13551482)
 
         # Send API request and handle response
         response = requests.post(r_URL, headers=self.headers, json=payload)

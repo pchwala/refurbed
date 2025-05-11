@@ -106,11 +106,10 @@ class IdoSellAPI:
                 # order_request is used for further editing of the order
                 order_request = new_order[1]
                 new_order = new_order[0]
-                info_msg = f"Created new order in IdoSell: {new_order}"
-                self.logger.info(info_msg)
-                print(info_msg)
                 new_order_id = new_order['results']['ordersResults'][0]['orderSerialNumber']
-                self.logger.info(f"New order ID: {new_order_id}")
+                self.logger.info(f"Created new order in IdoSell: ID {new_order_id}")
+                self.logger.info(f"Order request data: {order_request}")
+                print(f"Created new order in IdoSell: ID {new_order_id}")
                 
                 # Track created orders
                 created_orders.append({
@@ -118,7 +117,7 @@ class IdoSellAPI:
                     "idosell_id": new_order_id
                 })
 
-                # Edit order with additional details
+                # Additional order details
                 order_details = {
                     "orderStatus": "on_order",
                     "orderNote": order_request['products'][0]['remarksToProduct'],
@@ -130,18 +129,24 @@ class IdoSellAPI:
                     "value": data_row[4]
                 }
 
-                # TEMPORARILY COMMENTED OUT
-                # Add payment to the order
-                #payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
-
-                # Confirm payment
-                #payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
-
                 # Change order note and status
                 edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
 
-                # Return information about created order to be handled by the caller
-                # Config sheet updates are now the responsibility of the caller
+                # Add payment to the order
+                payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
+
+                # Confirm payment
+                payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
+
+                # Vat marża = IPHONE
+                is_iphone = False
+                if data_row[5] == '-1':
+                    is_iphone = True
+
+                # If the order is an iPhone, set the order status to "wait_for_packaging"
+                if is_iphone is True:
+                    order_details["orderStatus"] = "wait_for_packaging"
+                    edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
                 
             except Exception as e:
                 error_msg = f"Failed to create order for {ref_id}: {e}"
@@ -238,17 +243,14 @@ class IdoSellAPI:
         client_data['clientZipCode'] = invoice_address['post_code']
         client_data['clientCity'] = invoice_address['town']
         client_data['clientCountry'] = self.country_names[invoice_address['country_code']]
-        #client_data['clientEmail'] = ref_data['customer_email']
-        #client_data['clientPhone1'] = invoice_address.get('phone_number', '')
-        client_data['clientEmail'] = "Janusz@testowy.com"
-        client_data['clientPhone1'] = "500100100"
+        client_data['clientEmail'] = ref_data['customer_email']
+        client_data['clientPhone1'] = invoice_address.get('phone_number', '')
         # Set language ID if available for the country code
         if invoice_address['country_code'] in self.lang_ids:
             client_data['langId'] = self.lang_ids[invoice_address['country_code']]
         else:
             # Default to English if no matching language found
             client_data['langId'] = "eng"
-
 
         # Check if company_vatin field exists and is not empty
         if 'company_vatin' in invoice_address and invoice_address['company_vatin']:
@@ -264,8 +266,7 @@ class IdoSellAPI:
         delivery_address['clientDeliveryAddressCity'] = shipping_address['town']
         delivery_address['clientDeliveryAddressCountry'] = self.country_names[shipping_address['country_code']]
         delivery_address['clientDeliveryAddressCountryId'] = shipping_address['country_code']
-        #delivery_address['clientDeliveryAddressPhone1'] = shipping_address.get('phone_number')
-        delivery_address['clientDeliveryAddressPhone1'] = "500100100"
+        delivery_address['clientDeliveryAddressPhone1'] = shipping_address.get('phone_number')
 
         if 'company_name' in shipping_address:
             delivery_address['clientDeliveryAddressFirm'] = shipping_address['company_name']
@@ -379,15 +380,20 @@ class IdoSellAPI:
         """
         endpoint = f"{self.base_url}/payments/payments"
         
-        payload = { "params": {
-            "sourceType": "order",
-            "sourceId": order_id,
-            "value": value,
-            "account": "PL54249000050000460097455936",
-            "type": "advance",
-            "paymentFormId": 1
-
-        } }
+        payload = { 
+            "params": {
+                "sourceType": "order",
+                "sourceId": order_id,
+                "value": value,
+                "account": "PL54249000050000460097455936",
+                "type": "advance",
+                "paymentFormId": 1
+            },
+            "settings": {
+                "sendMail": False,
+                "sendSms": False
+            }
+        }
 
         response = requests.post(endpoint, headers=self.ids_headers, json=payload)
         

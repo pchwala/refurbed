@@ -1,9 +1,11 @@
+import os
 import requests
 import json
 import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
 from oauth2client.service_account import ServiceAccountCredentials
 import logging
+import time
 from cloud_logging import CloudLogger
 
 
@@ -287,7 +289,6 @@ class RefurbedAPI:
         if response.status_code != 200:
             error_msg = f"Error: Failed to fetch orders. Status code: {response.status_code}"
             self.logger.error(error_msg)
-            self.logger.error(error_msg)
             return
 
         response_data = response.json()
@@ -322,7 +323,6 @@ class RefurbedAPI:
     
         if response.status_code != 200:
             error_msg = f"Error: Failed to fetch selected orders. Status code: {response.status_code}"
-            self.logger.error(error_msg)
             self.logger.error(error_msg)
             return []
     
@@ -393,7 +393,7 @@ class RefurbedAPI:
                     'range': f"{chr(64 + r_state_col)}{row_num}",  # Convert column index to letter (A, B, C...)
                     'values': [[state]]
                 })
-                self.logger.info(f"Will update order {order_id} with state {state} at row {row_num}")
+                #self.logger.info(f"Will update order {order_id} with state {state} at row {row_num}")
         
         if updates:
             # Apply all updates in batch
@@ -405,6 +405,18 @@ class RefurbedAPI:
             return 0
 
     def update_states(self):
+        """
+        Fetch the latest orders from Refurbed API and update their states in the Google Sheet.
+        
+        This method retrieves the most recent orders (up to the limit defined in payload_all),
+        and updates the corresponding order state entries in the Google Sheet.
+        
+        Returns:
+            int: The number of order states that were updated in the Google Sheet.
+        
+        Raises:
+            Exception: If the API request fails.
+        """
         # === Refurbed API Setup ===
         r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
 
@@ -414,14 +426,84 @@ class RefurbedAPI:
         # Get, decode and save response
         response = requests.post(r_URL, headers=self.headers, json=payload)
         if response.status_code != 200:
-
             self.logger.error(f"Error: Failed to fetch orders. Status code: {response.status_code}")
             raise Exception(f"Error: Failed to fetch orders. Status code: {response.status_code}")
         
+        # Parse the response data
         response_data = response.json()
         orders = response_data.get('orders', [])
         
-        # Update order states in the Google Sheet
+        # Update order states in the Google Sheet and return count of updated entries
         updated = self.update_order_states(orders)
 
-        return  updated
+        return updated
+
+    def change_state(self, order_item_id, state):
+        """
+        Update the state of a specific order item in the Refurbed system.
+        
+        Args:
+            order_item_id (str): The ID of the order item to update.
+            state (str): The new state to set for the order item.
+        
+        Returns:
+            bool: True if the state was successfully updated, False otherwise.
+        """
+        # Set up API endpoint for updating order item state
+        r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderItemService/UpdateOrderItemState"
+
+        # Create payload with item ID and new state
+        payload = {
+            "id": order_item_id,
+            "state": state
+        }
+        
+        # Send state update request
+        response = requests.post(r_URL, headers=self.headers, json=payload)
+        
+        # Handle response
+        if response.status_code != 200:
+            error_msg = f"Error: Failed to update order states. Status code: {response.status_code}"
+            self.logger.error(error_msg)
+            self.logger.error(f"Response: {response.text}")
+            return False
+        
+        # Log success
+        self.logger.info(f"Successfully updated order item to state: {state}")
+        return True
+
+    def list_orders_items(self, order_ids):
+        """
+        Retrieve all item IDs associated with the specified order IDs.
+        
+        This method fetches the specified orders from Refurbed API and extracts 
+        the item IDs from each order.
+        
+        Args:
+            order_ids (list): A list of order IDs to retrieve items for.
+        
+        Returns:
+            list: A list of item IDs associated with the specified orders.
+        """
+        # Check if order_ids is empty
+        if not order_ids:
+            self.logger.warning("No order IDs provided.")
+            return []
+
+        # Fetch the specified orders from the API
+        fetched_orders = self.fetch_selected_orders(order_ids)
+
+        # Initialize empty list for collecting item IDs
+        items_list = []
+
+        # Extract all item IDs from the fetched orders
+        for order in fetched_orders:
+            items = order.get("items", [])
+            for item in items:
+                item_id = item.get("id", "")
+                items_list.append(item_id)
+
+        # Log the extracted item IDs
+        self.logger.info(f"Items list: {items_list}")
+        
+        return items_list

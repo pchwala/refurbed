@@ -484,7 +484,7 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-ret = api.ids_push_all()
+#ret = api.ids_push_all()
 
 #ret = api.process_orders()
 
@@ -495,5 +495,7 @@ ret = api.ids_push_all()
 #ret = api.refurbed_api.change_state(order_item_id="17412151", state="ACCEPTED")
 
 #ret = api.refurbed_api.list_orders_items(["13582047", "13582109", "13581259", "13410452"])
+
+ret = api.refurbed_api.update_states()
 
 print(ret)
