@@ -61,6 +61,7 @@ class IdoSellAPI:
             "IT": "ita",
             "ES": "spa"
         }
+         
         
     def get_product(self, product_id=None):
         """
@@ -77,6 +78,38 @@ class IdoSellAPI:
             return response.json()
         else:
             raise Exception(f"Error: {response.status_code, {response.text}}")
+        
+    def get_order(self, order_id=None):
+        """
+        Get details of a specific order using its id.
+        """
+        endpoint = f"{self.base_url}/orders/orders?ordersSerialNumbers={order_id}"
+        
+        response = requests.get(endpoint, headers=self.ids_headers)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+    
+    def get_order_tracking_id(self, order_id=None):
+        """
+        Get tracking ID for a specific order using its id.
+        """
+        order = self.get_order(order_id=order_id)
+        
+        # Get order details and extract tracking number and status
+        if order is not None:
+            tracking_number = None
+            tracking_number = order['Results'][0]['orderDetails']['dispatch']['deliveryPackageId']
+            if tracking_number is not None:
+                is_finished = order['Results'][0]['orderDetails']['orderStatus'] == "finished"
+                # Return tracking number and status, finished = True, not finished = False
+                return tracking_number, is_finished
+            else:
+                return None, None
+        else:
+            raise Exception("Error: No order found with the provided ID. Tracking number not updated")
             
     def create_orders(self, pending_rows=None, ref_data=None):
         """
@@ -192,6 +225,7 @@ class IdoSellAPI:
         else:
             if data_row[9] == "TRUE":
                 order['products'][0]['remarksToProduct'] = "Wymiana baterii na 100%"
+                order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
 
         # Add the API request and response handling
         response = requests.post(endpoint, headers=self.ids_headers, json=create_body)

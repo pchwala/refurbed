@@ -406,45 +406,70 @@ class RefurbedAPI:
 
     def update_states(self):
         """
-        Fetch the latest orders from Refurbed API and update their states in the Google Sheet.
-        
-        This method retrieves the most recent orders (up to the limit defined in payload_all),
-        and updates the corresponding order state entries in the Google Sheet.
+        Updates the states of orders in the Google Sheet by fetching their current state from Refurbed API.
+        First collects all order IDs from the sheet, then queries only those orders.
         
         Returns:
-            int: The number of order states that were updated in the Google Sheet.
-        
-        Raises:
-            Exception: If the API request fails.
+            int: Number of orders updated
         """
+        # Load orders worksheet and get all values
+        all_rows = self.orders_sheet.get_all_values()
+        
+        # Find the ID column index (should be column S or index 18)
+        header = all_rows[0]
+        id_col_idx = header.index("ID")
+        
+        # Extract all non-empty order IDs from the sheet (skip header row)
+        order_ids = []
+        for row in all_rows[1:]:
+            if len(row) > id_col_idx and row[id_col_idx] and row[id_col_idx] != "":
+                order_ids.append(row[id_col_idx])
+        
+        self.logger.info(f"Found {len(order_ids)} order IDs in the sheet to update")
+        
+        if not order_ids:
+            self.logger.info("No orders found in the sheet to update")
+            return 0
+        
         # === Refurbed API Setup ===
         r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
 
-        # Create payload
-        payload = self.payload_all()
+        # Create payload with only the specific order IDs, but we need to batch them in groups of 100
+        all_orders = []
+        # Split order_ids into chunks of max 100 for API limitation
+        for i in range(0, len(order_ids), 100):
+            chunk = order_ids[i:i+100]
+            self.logger.info(f"Processing batch {i//100 + 1} with {len(chunk)} orders")
+            
+            # Create payload with current chunk of order IDs
+            payload = self.payload_selected(chunk)
 
-        # Get, decode and save response
-        response = requests.post(r_URL, headers=self.headers, json=payload)
-        if response.status_code != 200:
-            self.logger.error(f"Error: Failed to fetch orders. Status code: {response.status_code}")
-            raise Exception(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+            # Get, decode and save response
+            response = requests.post(r_URL, headers=self.headers, json=payload)
+            if response.status_code != 200:
+                self.logger.error(f"Error: Failed to fetch orders batch {i//100 + 1}. Status code: {response.status_code}")
+                raise Exception(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+            
+            response_data = response.json()
+            batch_orders = response_data.get('orders', [])
+            all_orders.extend(batch_orders)
+            self.logger.info(f"Successfully fetched {len(batch_orders)} orders from batch {i//100 + 1}")
         
-        # Parse the response data
-        response_data = response.json()
-        orders = response_data.get('orders', [])
+        self.logger.info(f"Successfully fetched total of {len(all_orders)} orders from Refurbed API for updating")
         
-        # Update order states in the Google Sheet and return count of updated entries
-        updated = self.update_order_states(orders)
+        # Update order states in the Google Sheet
+        updated = self.update_order_states(all_orders)
 
         return updated
 
-    def change_state(self, order_item_id, state):
+    def change_state(self, order_item_id, state, tracking_number=None):
         """
         Update the state of a specific order item in the Refurbed system.
         
         Args:
             order_item_id (str): The ID of the order item to update.
             state (str): The new state to set for the order item.
+            tracking_number (str, optional): The tracking number to associate with the order.
         
         Returns:
             bool: True if the state was successfully updated, False otherwise.
@@ -453,18 +478,26 @@ class RefurbedAPI:
         r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderItemService/UpdateOrderItemState"
 
         # Create payload with item ID and new state
-        payload = {
-            "id": order_item_id,
-            "state": state
-        }
+        if tracking_number:
+            tracking_url = f"https://www.ups.com/track?loc=en_GB&trackingNumber={tracking_number}"
+            
+            payload = {
+                "id": order_item_id,
+                "state": state,
+                "parcel_tracking_url": tracking_url
+            }
+        else:
+            payload = {
+                "id": order_item_id,
+                "state": state
+            }
         
         # Send state update request
         response = requests.post(r_URL, headers=self.headers, json=payload)
         
         # Handle response
         if response.status_code != 200:
-            error_msg = f"Error: Failed to update order states. Status code: {response.status_code}"
-            self.logger.error(error_msg)
+            self.logger.error(f"Error: Failed to update order states. Status code: {response.status_code}")
             self.logger.error(f"Response: {response.text}")
             return False
         
@@ -485,9 +518,10 @@ class RefurbedAPI:
         Returns:
             list: A list of item IDs associated with the specified orders.
         """
+
         # Check if order_ids is empty
         if not order_ids:
-            self.logger.warning("No order IDs provided.")
+            self.logger.info("No order IDs provided.")
             return []
 
         # Fetch the specified orders from the API
