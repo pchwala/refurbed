@@ -350,9 +350,32 @@ class Integration:
                 
                 processed_count += 1
                 
-                # Call edit_order with the idosell_id
-                result = self._prepare_process_order(idosell_id)
-                print(result)
+                # Get tracking number from IdoSell
+                tracking_number, is_finished = self.idosell_api.get_order_tracking_id(idosell_id)
+                if is_finished is not None:
+                    if is_finished is True:
+                        # If order is finished and there is proper tracking number, set state to SHIPPED
+                        items = self.refurbed_api.list_orders_items([refurbed_id])
+                        for item in items:
+                            result = self.refurbed_api.change_state(order_item_id=item, state="SHIPPED", tracking_number=tracking_number)
+                            if result is False:
+                                failed_count += 1
+                                continue
+                        success_count += 1
+                        continue
+
+                failed_count += 1
+                failed_orders.append(idosell_id)
+                
+            # Print summary of processed orders
+            print(f"Processed {processed_count} orders: {success_count} succeeded, {failed_count} failed.")
+            return {
+                "status": "success",
+                "processed_count": processed_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "failed_orders": failed_orders
+            }
                     
         except Exception as e:
             return {
@@ -484,16 +507,22 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-ret = api.ids_push_all()
-
-#ret = api.process_orders()
+#ret = api.ids_push_all()
 
 #ret = api.idosell_api.add_payment(339335, 206.67)
 
 #ret = api.idosell_api.confirm_payment(339335)
 
-#ret = api.refurbed_api.change_state(order_item_id="17412151", state="ACCEPTED")
+#ret = api.refurbed_api.change_state(order_item_id="17422299", state="SHIPPED", tracking_number="1ZA6E2756894175582")
 
-#ret = api.refurbed_api.list_orders_items(["13582047", "13582109", "13581259", "13410452"])
+ret = api.refurbed_api.list_orders_items(["13591505"])
+
+#ret = api.refurbed_api.update_states()
+
+#ret = api.idosell_api.get_order_tracking_id(339968)
+
+#ret = api.process_orders()
 
 print(ret)
+
+#1ZA6E2756894175582
