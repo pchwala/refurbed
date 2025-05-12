@@ -247,7 +247,7 @@ class Integration:
     def process_orders(self):
         """
         Process all orders in the Config worksheet by extracting refurbed and idosell
-        order IDs from columns D and E respectively, and calling edit_order for each valid pair.
+        order IDs from columns D and E respectively, and checking tracking numbers to update order states.
         
         Returns:
             dict: Dictionary containing results with counts of processed, successful, and failed orders
@@ -277,9 +277,32 @@ class Integration:
                 
                 processed_count += 1
                 
-                # Call edit_order with the idosell_id
-                result = self._prepare_process_order(idosell_id)
-                self.logger.info(result)
+                # Get tracking number from IdoSell
+                tracking_number, is_finished = self.idosell_api.get_order_tracking_id(idosell_id)
+                if is_finished is not None:
+                    if is_finished is True:
+                        # If order is finished and there is proper tracking number, set state to SHIPPED
+                        items = self.refurbed_api.list_orders_items([refurbed_id])
+                        for item in items:
+                            result = self.refurbed_api.change_state(order_item_id=item, state="SHIPPED", tracking_number=tracking_number)
+                            if result is False:
+                                failed_count += 1
+                                continue
+                        success_count += 1
+                        continue
+
+                failed_count += 1
+                failed_orders.append(idosell_id)
+                
+            # Log summary of processed orders
+            self.logger.info(f"Processed {processed_count} orders: {success_count} succeeded, {failed_count} failed.")
+            return {
+                "status": "success",
+                "processed_count": processed_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "failed_orders": failed_orders
+            }
                     
         except Exception as e:
             self.logger.error(f"Error processing orders: {str(e)}")
@@ -320,9 +343,16 @@ class Integration:
 
             # Update Config sheet with the created orders
             self.update_config(created_orders=created_orders)
+            
+            # Set states to ACCEPTED in Refurbed
+            self.set_states_to_accepted(created_orders=created_orders)
 
             # Update Orders worksheet with IdoSell order IDs
             self.update_orders_worksheet(created_orders=created_orders)
+            
+            # Fetch states from Refurbed to worksheet to make sure they are up to date
+            #updated = self.refurbed_api.update_states()
+            #self.logger.info(f"Updated {updated} order states in worksheet")
 
             return True
         else:
@@ -361,6 +391,33 @@ class Integration:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    def set_states_to_accepted(self, created_orders):
+        """
+        Update the state of all items in the provided orders to 'ACCEPTED'.
+        
+        Args:
+            created_orders (list): A list of order dictionaries, each containing 
+                                  a 'ref_id' key that references the order in the Refurbed system.
+        
+        Note:
+            This method introduces a 0.2 second delay between API calls to avoid rate limiting,
+            as batch updates don't seem to work properly.
+        """
+        import time
+        
+        ref_orders = []
+        for order in created_orders:
+            ref_orders.append(order["ref_id"])
+
+        self.logger.info(f"Setting states to ACCEPTED for {len(ref_orders)} orders")
+        items_list = self.refurbed_api.list_orders_items(ref_orders)
+
+        for item in items_list:
+            self.refurbed_api.change_state(order_item_id=item, state="ACCEPTED")
+            # Add 1/5 second delay between API calls to avoid rate limiting
+            # Batch updates don't work properly
+            time.sleep(0.2)
+
 
 def push_orders_task():
     """Task to push orders to IdoSell that runs on a schedule"""
@@ -389,7 +446,7 @@ def home():
 def run_task():
     """Run the push task and display results in the GUI"""
     success, output = push_orders_task()
-    if success:
+    if (success):
         output += "\n\nZamówienia zostały wysłane pomyślnie."
     else:
         if not output:

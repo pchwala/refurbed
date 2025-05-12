@@ -200,6 +200,7 @@ class IdoSellAPI:
         else:
             if data_row[9] == "TRUE":
                 order['products'][0]['remarksToProduct'] = "Wymiana baterii na 100%"
+                order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
 
         # Add the API request and response handling
         response = requests.post(endpoint, headers=self.ids_headers, json=create_body)
@@ -424,5 +425,50 @@ class IdoSellAPI:
         else:
             error_msg = f"Error confirming payment: {response.status_code}, {response.text}"
             print(error_msg)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
+
+    def get_order(self, order_id=None):
+        """
+        Get details of a specific order using its id.
+        """
+        endpoint = f"{self.base_url}/orders/orders?ordersSerialNumbers={order_id}"
+        
+        response = requests.get(endpoint, headers=self.ids_headers)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            error_msg = f"Error fetching order: {response.status_code}, {response.text}"
+            self.logger.error(error_msg)
+            return None
+
+    def get_order_tracking_id(self, order_id=None):
+        """
+        Get tracking ID for a specific order using its id.
+        
+        Args:
+            order_id (int): ID of the order in IdoSell
+            
+        Returns:
+            tuple: (tracking_number, is_finished) where tracking_number is the delivery package ID
+                  and is_finished is a boolean indicating if the order is in 'finished' state
+        """
+        order = self.get_order(order_id=order_id)
+        
+        # Get order details and extract tracking number and status
+        if order is not None:
+            tracking_number = None
+            tracking_number = order['Results'][0]['orderDetails']['dispatch']['deliveryPackageId']
+            if tracking_number is not None:
+                is_finished = order['Results'][0]['orderDetails']['orderStatus'] == "finished"
+                # Return tracking number and status, finished = True, not finished = False
+                self.logger.info(f"Found tracking number {tracking_number} for order {order_id}, status: {is_finished}")
+                return tracking_number, is_finished
+            else:
+                self.logger.info(f"No tracking number for order {order_id}")
+                return None, None
+        else:
+            error_msg = f"Error: No order found with ID {order_id}. Tracking number not updated"
             self.logger.error(error_msg)
             raise Exception(error_msg)

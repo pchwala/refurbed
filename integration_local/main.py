@@ -289,7 +289,7 @@ class Integration:
             self.update_orders_worksheet(created_orders=created_orders)
 
             # Ftech states from refurbed to worksheet to make sure they are up to date
-            updated = api.refurbed_api.update_states()
+            #updated = api.refurbed_api.update_states()
 
             return True
         else:
