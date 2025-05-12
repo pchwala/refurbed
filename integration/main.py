@@ -394,10 +394,6 @@ class Integration:
             #updated = self.refurbed_api.update_states()
             #self.logger.info(f"Updated {updated} order states in worksheet")
 
-            # Fetch states from refurbed to worksheet to make sure they are up to date
-            updated = self.refurbed_api.update_states()
-            self.logger.info(f"Updated {updated} order states after processing")
-
             return True
         else:
             self.logger.info("No pending rows found to update")
@@ -534,19 +530,39 @@ def update_states():
         return render_template('index.html', output=error_msg)
 
 
-@app.route("/api/push", methods=["POST"])
-def push_orders_endpoint():
-    """API endpoint for programmatic access"""
+@app.route("/process_orders", methods=["POST"])
+def process_orders():
+    """Process orders and update tracking information"""
     try:
-        success, output = push_orders_task()
-        if success:
-            return jsonify({"message": "Orders push completed successfully.", "details": output}), 200
-        else:
-            return jsonify({"message": "No orders to push or push failed.", "details": output}), 200
+        # Create an integration instance
+        api = Integration()
+        
+        # Process orders
+        result = api.process_orders()
+        
+        if result.get("status") == "error":
+            return render_template('index.html', output=f"Błąd: {result.get('message')}")
+        
+        # Format a detailed success message
+        output = f"Przetworzono {result.get('processed_count', 0)} zamówień:\n"
+        output += f"- Zaktualizowano pomyślnie: {result.get('success_count', 0)}\n"
+        output += f"- Nieudane aktualizacje: {result.get('failed_count', 0)}"
+        
+        # Add details about failed orders if any exist
+        failed_orders = result.get('failed_orders', [])
+        if failed_orders:
+            output += "\n\nZamówienia, których nie udało się zaktualizować:"
+            for order_id in failed_orders[:10]:  # Limit to first 10 to avoid too long response
+                output += f"\n- {order_id}"
+            
+            if len(failed_orders) > 10:
+                output += f"\n... i {len(failed_orders) - 10} więcej."
+        
+        return render_template('index.html', output=output)
     except Exception as e:
-        error_msg = f"Error: {str(e)}"
+        error_msg = f"Błąd podczas przetwarzania zamówień: {str(e)}"
         logging.error(error_msg)
-        return jsonify({"error": error_msg}), 500
+        return render_template('index.html', output=error_msg)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IdoSell Order Manager</title>
+    <title>Menadżer zamówień Refurbed</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -76,7 +76,7 @@
 <body>
     <div class="container">
         <h1>Menadżer zamówień Refurbed-IdoSell</h1>
-        <p style="color: red; font-weight: bold;">WERSJA TESTOWA.</p>
+        <p style="color: red; font-weight: bold;">STAGING BRANCH.</p>
         <div class="button-group">
             <form action="/run_task" method="post">
                 <button type="submit" class="button">Wyślij do IdoSell</button>
@@ -86,6 +86,9 @@
             </form>
             <form action="/update_states" method="post">
                 <button type="submit" class="button orange">Aktualizuj stany</button>
+            </form>
+            <form action="/process_orders" method="post">
+                <button type="submit" class="button orange">Aktualizuj wysłane</button>
             </form>
         </div>
         <div class="output">{{ output }}</div>
