@@ -197,15 +197,15 @@ class IdoSellAPI:
         
         id_matki = self._prepare_product_details(order, data_row, bundle)
         
+        order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
+        
         # Prepare order notes
         if is_iphone is False:
             notes = self._prepare_order_notes(data_row, id_matki)
             order['products'][0]['remarksToProduct'] = notes
-            order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
         else:
             if data_row[9] == "TRUE":
                 order['products'][0]['remarksToProduct'] = "Wymiana baterii na 100%"
-                order['clientNoteToOrder'] = f"[refurbed-api-id:{ref_id}]"
 
         # Add the API request and response handling
         response = requests.post(endpoint, headers=self.ids_headers, json=create_body)

@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 import json
 import gspread
 from gspread_formatting import set_data_validation_for_cell_range, DataValidationRule, BooleanCondition
@@ -220,7 +220,7 @@ class Integration:
             # Execute batch update if there are matches
             if batch_update:
                 self.orders_sheet.batch_update(batch_update)
-                self.logger.info(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs and changed r_state to ACCEPTED")
+                self.logger.info(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs")
                 
             return {
                 "status": "success",
@@ -384,16 +384,9 @@ class Integration:
             # Set states to ACCEPTED in Refurbed
             self.set_states_to_accepted(created_orders=created_orders)
 
-            # Set states to ACCEPTED in Refurbed
-            self.set_states_to_accepted(created_orders=created_orders)
-
             # Update Orders worksheet with IdoSell order IDs
             self.update_orders_worksheet(created_orders=created_orders)
             
-            # Fetch states from Refurbed to worksheet to make sure they are up to date
-            #updated = self.refurbed_api.update_states()
-            #self.logger.info(f"Updated {updated} order states in worksheet")
-
             return True
         else:
             self.logger.info("No pending rows found to update")
@@ -563,6 +556,55 @@ def process_orders():
         error_msg = f"Błąd podczas przetwarzania zamówień: {str(e)}"
         logging.error(error_msg)
         return render_template('index.html', output=error_msg)
+
+
+@app.route("/api/process_orders", methods=["POST"])
+def api_process_orders():
+    """API endpoint for programmatic access to process orders"""
+    try:
+        # Create an integration instance
+        api = Integration()
+        
+        # Process orders
+        result = api.process_orders()
+        
+        # If there was an error in processing, return error response
+        if result.get("status") == "error":
+            return jsonify({"status": "error", "message": result.get("message")}), 500
+        
+        # Return success response with process statistics
+        return jsonify({
+            "status": "success",
+            "processed_count": result.get("processed_count", 0),
+            "success_count": result.get("success_count", 0),
+            "failed_count": result.get("failed_count", 0),
+            "failed_orders": result.get("failed_orders", [])
+        }), 200
+    except Exception as e:
+        error_msg = f"Error processing orders: {str(e)}"
+        logging.error(error_msg)
+        return jsonify({"status": "error", "message": error_msg}), 500
+
+
+@app.route("/api/update_states", methods=["POST"])
+def api_update_states():
+    """API endpoint for programmatic access to update order states"""
+    try:
+        # Create an integration instance
+        api = Integration()
+        
+        # Use the RefurbedAPI directly to update states
+        updated = api.refurbed_api.update_states()
+        
+        return jsonify({
+            "status": "success",
+            "updated_count": updated,
+            "message": f"Successfully updated {updated} orders"
+        }), 200
+    except Exception as e:
+        error_msg = f"Error updating order states: {str(e)}"
+        logging.error(error_msg)
+        return jsonify({"status": "error", "message": error_msg}), 500
 
 
 if __name__ == "__main__":

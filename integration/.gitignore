@@ -6,6 +6,8 @@
 
 # Notes
 !responses_notes.txt
+!requirements.txt
+!requests.txt
 
 # Cache files
 __pycache__/

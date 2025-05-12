@@ -1,0 +1,6 @@
+curl -X POST http://localhost:8080/api/process_orders \
+  -H "Content-Type: application/json"
+
+
+curl -X POST http://localhost:8080/api/update_states \
+  -H "Content-Type: application/json"

@@ -414,6 +414,7 @@ class RefurbedAPI:
         """
         # Load orders worksheet and get all values
         all_rows = self.orders_sheet.get_all_values()
+        config_rows = self.config_sheet.get_all_values()
         
         # Find the ID column index (should be column S or index 18)
         header = all_rows[0]
@@ -459,7 +460,42 @@ class RefurbedAPI:
         
         # Update order states in the Google Sheet
         updated = self.update_order_states(all_orders)
-
+        
+        # Config batch update to delete SHIPPED orders
+        batch_update = []
+        matched_count = 0
+        col_ref_id = 3 # Column D
+        
+        # Iterate through all orders retrieved from the Refurbed API
+        for order in all_orders:
+            order_id = order.get("id", "")  # Extract the order ID
+            state = order.get("state", "")  # Extract the current order state
+        
+            # Search through config rows to find matching order ID
+            for i, row in enumerate(config_rows[1:], start=2):
+                # Check if the current row contains the order ID in column D (index 4)
+                if len(row) > col_ref_id and row[col_ref_id] == order_id:
+                    # If the order has been shipped, remove its tracking information
+                    if state == "SHIPPED":
+                        # Clear column D (IdoSell order ID) in Config sheet
+                        batch_update.append({
+                            'range': f'D{i}',
+                            'values': [[""]]
+                        })
+                        
+                        # Clear column E (tracking info) in Config sheet
+                        batch_update.append({
+                            'range': f'E{i}',
+                            'values': [[""]]
+                        })
+                        matched_count += 1  # Increment counter of updated rows
+                        break  # Stop searching after finding the matching row
+                    
+        # Execute batch update if there are matches
+        if batch_update:
+            self.config_sheet.batch_update(batch_update)
+            self.logger.info(f"Updated {matched_count} rows in Config sheet by clearing tracking information for SHIPPED orders")
+        
         return updated
 
     def change_state(self, order_item_id, state, tracking_number=None):
