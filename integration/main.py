@@ -467,6 +467,59 @@ def push_orders_task():
         error_msg = f"Error in scheduled task: {str(e)}"
         print(error_msg)
         return False, error_msg
+    
+def _update_states_api():
+    """Core function for updating order states via API
+    
+    Returns:
+        tuple: (response_json, status_code)
+    """
+    try:
+        # Create an integration instance
+        api = Integration()
+        
+        # Use the RefurbedAPI directly to update states
+        updated = api.refurbed_api.update_states()
+        
+        return {
+            "status": "success",
+            "updated_count": updated,
+            "message": f"Successfully updated {updated} orders"
+        }, 200
+    except Exception as e:
+        error_msg = f"Error updating order states: {str(e)}"
+        logging.error(error_msg)
+        return {"status": "error", "message": error_msg}, 500
+
+def _process_orders_api():
+    """Core function for processing orders via API
+    
+    Returns:
+        tuple: (response_json, status_code)
+    """
+    try:
+        # Create an integration instance
+        api = Integration()
+        
+        # Process orders
+        result = api.process_orders()
+        
+        # If there was an error in processing, return error response
+        if result.get("status") == "error":
+            return {"status": "error", "message": result.get("message")}, 500
+        
+        # Return success response with process statistics
+        return {
+            "status": "success",
+            "processed_count": result.get("processed_count", 0),
+            "success_count": result.get("success_count", 0),
+            "failed_count": result.get("failed_count", 0),
+            "failed_orders": result.get("failed_orders", [])
+        }, 200
+    except Exception as e:
+        error_msg = f"Error processing orders: {str(e)}"
+        logging.error(error_msg)
+        return {"status": "error", "message": error_msg}, 500
 
 
 @app.route("/", methods=["GET"])
@@ -557,52 +610,65 @@ def process_orders():
         logging.error(error_msg)
         return render_template('index.html', output=error_msg)
 
-
-@app.route("/api/process_orders", methods=["POST"])
-def api_process_orders():
-    """API endpoint for programmatic access to process orders"""
+@app.route("/api/fetch_orders", methods=["POST"])
+def api_fetch_orders():
+    """API endpoint for programmatic access to fetch orders from Refurbed"""
     try:
         # Create an integration instance
         api = Integration()
         
-        # Process orders
-        result = api.process_orders()
+        # Use direct_fetch_orders method
+        result = api.direct_fetch_orders()
         
-        # If there was an error in processing, return error response
-        if result.get("status") == "error":
-            return jsonify({"status": "error", "message": result.get("message")}), 500
+        if result["status"] == "error":
+            return jsonify({"status": "error", "message": result["message"]}), 500
         
-        # Return success response with process statistics
         return jsonify({
             "status": "success",
-            "processed_count": result.get("processed_count", 0),
-            "success_count": result.get("success_count", 0),
-            "failed_count": result.get("failed_count", 0),
-            "failed_orders": result.get("failed_orders", [])
+            "message": "Orders fetched successfully"
         }), 200
     except Exception as e:
-        error_msg = f"Error processing orders: {str(e)}"
+        error_msg = f"Error fetching orders: {str(e)}"
         logging.error(error_msg)
         return jsonify({"status": "error", "message": error_msg}), 500
-
+    
+@app.route("/api/process_orders", methods=["POST"])
+def api_process_orders():
+    """API endpoint for programmatic access to process orders"""
+    response, status_code = _process_orders_api()
+    return jsonify(response), status_code
 
 @app.route("/api/update_states", methods=["POST"])
 def api_update_states():
     """API endpoint for programmatic access to update order states"""
+    response, status_code = _update_states_api()
+    return jsonify(response), status_code
+
+@app.route("/api/push_and_sync", methods=["POST"])
+def api_update_and_process():
+    """API endpoint for programmatic access to update states and then process orders in sequence"""
     try:
-        # Create an integration instance
-        api = Integration()
+        # Step 1: Update states
+        update_response, update_status = _update_states_api()
         
-        # Use the RefurbedAPI directly to update states
-        updated = api.refurbed_api.update_states()
+        # Step 2: Process orders
+        process_response, process_status = _process_orders_api()
         
-        return jsonify({
-            "status": "success",
-            "updated_count": updated,
-            "message": f"Successfully updated {updated} orders"
-        }), 200
+        # Determine overall status code (use the worst status)
+        status_code = 200
+        if update_status != 200 or process_status != 200:
+            status_code = max(update_status, process_status)
+        
+        # Create combined response
+        response = {
+            "status": "success" if status_code == 200 else "partial_success",
+            "update_states": update_response,
+            "process_orders": process_response
+        }
+        
+        return jsonify(response), status_code
     except Exception as e:
-        error_msg = f"Error updating order states: {str(e)}"
+        error_msg = f"Error in combined update and process operation: {str(e)}"
         logging.error(error_msg)
         return jsonify({"status": "error", "message": error_msg}), 500
 
