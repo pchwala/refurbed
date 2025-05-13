@@ -295,27 +295,6 @@ class Integration:
         else:
             print("No pending rows found to update")
             return False
-        
-    def _prepare_process_order(self, order_id):
-        """
-        Edit an order in the Refurbed API using the order ID and new data.
-        
-        Args:
-            order_id (str): The ID of the order to edit
-            new_data (dict): The new data to update the order with
-            
-        Returns:
-            json response: JSON response from the IdoSell API
-        """
-        new_data = {
-            'orderNote': "ZAMÓWIENIE PRZYPADKOWO POMIESZANE Z KACPREM",
-            'orderStatus': 'canceled'
-        }
-
-        # Use the IdoSell directly
-        result = self.idosell_api.edit_order(order_id=order_id, order_details=new_data)
-        
-        return result
     
     def process_orders(self):
         """
@@ -507,7 +486,7 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-##ret = api.ids_push_all()
+ret = api.ids_push_all()
 
 #ret = api.idosell_api.add_payment(339335, 206.67)
 
@@ -517,7 +496,9 @@ api = Integration()
 
 #ret = api.refurbed_api.list_orders_items(["13582047", "13582109", "13581259", "13410452"])
 
-ret = api.refurbed_api.update_states()
+#ret = api.refurbed_api.update_states()
+
+#ret = api.idosell_api.create_new_order(ref_id="13553126", data_row)
 
 print(ret)
 
