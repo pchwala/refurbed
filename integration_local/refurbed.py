@@ -80,9 +80,37 @@ class RefurbedAPI:
                 self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
 
     def get_last_order_id(self):
-        # Read last fetched order id from Config Sheet
-        config = self.config_sheet.get_all_values()
-        return config[1][0]
+        # Read last order id from the ID column (last column) in Orders Sheet
+        all_values = self.orders_sheet.get_all_values()
+        
+        # Check if there are any rows besides the header
+        if len(all_values) <= 1:
+            # If only header exists or sheet is empty, get the default from Config
+            config = self.config_sheet.get_all_values()
+            return config[1][0]
+            
+        # Find the ID column index
+        header = all_values[0]
+        try:
+            id_col_idx = header.index("ID")
+        except ValueError:
+            # If ID column is not found, fall back to Config sheet
+            print("ID column not found in Orders sheet, falling back to Config sheet")
+            config = self.config_sheet.get_all_values()
+            return config[1][0]
+            
+        # Get the last row with data
+        last_row = all_values[-1]
+        
+        # Check if the last row has enough columns and the ID exists
+        if len(last_row) > id_col_idx and last_row[id_col_idx]:
+            print(f"Using last order ID from Orders sheet: {last_row[id_col_idx]}")
+            return last_row[id_col_idx]
+        else:
+            # Fall back to Config sheet if ID is missing
+            print("Last row in Orders sheet has no ID, falling back to Config sheet")
+            config = self.config_sheet.get_all_values()
+            return config[1][0]
         
     def payload_last(self, last_id):
         # Fetch new orders from the last fetched order id
@@ -278,6 +306,57 @@ class RefurbedAPI:
         
         # Update sheets
         self.update_sheets(sheet_rows, last_id)
+        
+    def fetch_missing_orders(self, n=90):
+        """Fetches the orders that cannot be fetched by fetch_orders. Order must be older than last_id buy younger than n latest"""
+        # === Refurbed API Setup ===
+        r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
+
+        # Get all order IDs and values from the sheet
+        all_rows = self.orders_sheet.get_all_values()
+        all_ids = []
+ 
+        # Get only the last 100 rows (or all if less than 100)
+        last_rows = all_rows[-100:] if len(all_rows) > 100 else all_rows[1:]
+        
+        # Make a list of all ref_ids from the last 100 rows
+        for row in last_rows:
+            if len(row) > 0 and len(row) > 18:
+                all_ids.append(row[18])
+                
+        # Create payload for latest n orders
+        payload = self.payload_all(limit=n)
+    
+        # Get, decode and save response
+        response = requests.post(r_URL, headers=self.headers, json=payload)
+    
+        if response.status_code != 200:
+            print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
+            return
+    
+        response_data = response.json()
+        orders = response_data.get('orders', [])
+        
+        new_orders = []
+        
+        for order in orders:
+            if order['id'] not in all_ids:
+                new_orders.append(order)
+        
+        if new_orders:
+            # Process orders
+            sheet_rows, last_id = self.process_orders(new_orders)
+            
+            # Reverse the order of sheet_rows so it writes to sheet properly
+            sheet_rows.reverse()
+            
+            # Update sheets - but don't update the last_id in config
+            # since this is just fetching the latest rather than continuing from previous
+            self.update_sheets(sheet_rows, "")
+        
+            print(f"Searched latest {len(orders)} orders for missing orders")
+        else:
+            print(f"No new orders found in the last {n} orders")
 
     def fetch_selected_orders(self, order_ids):
         """Fetches specific orders by their IDs.
@@ -305,34 +384,6 @@ class RefurbedAPI:
         orders = response_data.get('orders', [])
         
         return orders
-
-    def fetch_latest_orders(self, update=False, n=100):
-        """Fetches the latest 100 orders regardless of the last fetched order ID."""
-        # === Refurbed API Setup ===
-        r_URL = "https://api.refurbed.com/refb.merchant.v1.OrderService/ListOrders"
-        
-        # Create payload for latest n orders
-        payload = self.payload_all(limit=n)
-    
-        # Get, decode and save response
-        response = requests.post(r_URL, headers=self.headers, json=payload)
-    
-        if response.status_code != 200:
-            print(f"Error: Failed to fetch orders. Status code: {response.status_code}")
-            return
-    
-        response_data = response.json()
-        orders = response_data.get('orders', [])
-        
-        # Process orders
-        sheet_rows, last_id = self.process_orders(orders)
-        
-        # Update sheets - but don't update the last_id in config
-        # since this is just fetching the latest rather than continuing from previous
-        if update:
-            self.update_sheets(sheet_rows, "")
-        
-        print(f"Fetched latest {len(orders)} orders")
 
     def update_order_states(self, orders):
         # Get all order IDs and values from the sheet

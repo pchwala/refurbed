@@ -418,9 +418,9 @@ class Integration:
             dict: Dictionary containing the result status and message
         """
         try:
-            # Use the RefurbedAPI directly
-            self.refurbed_api.fetch_orders()
-            return {"status": "success", "message": "Orders fetched successfully"}
+            # Use the RefurbedAPI directly with fetch_missing_orders instead of fetch_orders
+            missing_count = self.refurbed_api.fetch_missing_orders()
+            return {"status": "success", "message": f"Orders fetched successfully. Found {missing_count} missing orders."}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 

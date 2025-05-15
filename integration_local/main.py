@@ -486,7 +486,7 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-ret = api.ids_push_all()
+#ret = api.ids_push_all()
 
 #ret = api.idosell_api.add_payment(339335, 206.67)
 
@@ -499,6 +499,12 @@ ret = api.ids_push_all()
 #ret = api.refurbed_api.update_states()
 
 #ret = api.idosell_api.create_new_order(ref_id="13553126", data_row)
+
+#ret = api.refurbed_api.fetch_missing_orders()
+
+#ret = api.direct_fetch_orders()
+
+ret = api.refurbed_api.get_last_order_id()
 
 print(ret)
 
