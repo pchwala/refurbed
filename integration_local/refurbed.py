@@ -181,80 +181,96 @@ class RefurbedAPI:
         for order in orders:
             shipping = order.get("shipping_address", {})
             items = order.get("items", [])
-            item = items[0] if items else {}
             
+            # Skip orders with no items
+            if not items:
+                continue
+                
             country_code = shipping.get("country_code", "")
             
-            # Calculate VAT value based on country code, VAT number, and if its iphone or not
-            vat_value = 0
-            invoice_address = order.get("invoice_address", {})
-            vat_number = invoice_address.get("company_vatin", "")
-            item_name = item.get("name", "")
-            # Check if the item is an iPhone (case insensitive)
-            is_iphone = "iphone" in item_name.lower() if item_name else False
-
-            """
-            Cytujac MB:
-            stawka vat powinna ustawiać się automatycznie w zależności od kodu kraju.
-            * Dla laptopów to będzie:
-            - dla zamówień indywidualnych stawka vat obowiązująca w danym kraju
-            - dla zamówień biznesowych z NIP - VAT 0 (wyjątek - zamówienia składane z Polski, tu nie będzie vat 0, tylko zawsze 23% vat)
-            * Dla telefonów - zawsze vat marża
-            """
-            if is_iphone is False:
-                if country_code in self.vat_rates:
-                    if vat_number:
-                        if country_code == "PL":
-                            vat_value = 23
-                        else:
-                            vat_value = 0
-                    else:
-                        vat_value = self.vat_rates.get(country_code, "")
-            else:
-                vat_value = -1 # VAT marża
+            #Multiple items switch
+            multiple_items = True if len(items) > 1 else False
             
-            # Extract offer_grading from offer_data if available
-            klasa = ""
-            battery_replace = "FALSE"
-            if item and "offer_data" in item:
-                offer_data = item.get("offer_data", {})
-                klasa = offer_data.get("offer_grading", "")
-                # Check if battery has to be replaced
-                battery_replace = "TRUE" if offer_data.get("battery_condition", "") == "NEW" else "FALSE"
+            # Process each item in the order separately
+            for item in items:
+                # Calculate VAT value based on country code, VAT number, and if its iphone or not
+                vat_value = 0
+                invoice_address = order.get("invoice_address", {})
+                vat_number = invoice_address.get("company_vatin", "")
+                item_name = item.get("name", "")
+                # Check if the item is an iPhone (case insensitive)
+                is_iphone = "iphone" in item_name.lower() if item_name else False
 
-            if is_iphone is False:
-                if klasa == "B":
-                    klasa = "A 2"
-                elif klasa == "C":
-                    klasa = "A-"
-            else:
+                """
+                Cytujac MB:
+                stawka vat powinna ustawiać się automatycznie w zależności od kodu kraju.
+                * Dla laptopów to będzie:
+                - dla zamówień indywidualnych stawka vat obowiązująca w danym kraju
+                - dla zamówień biznesowych z NIP - VAT 0 (wyjątek - zamówienia składane z Polski, tu nie będzie vat 0, tylko zawsze 23% vat)
+                * Dla telefonów - zawsze vat marża
+                """
+                if is_iphone is False:
+                    if country_code in self.vat_rates:
+                        if vat_number:
+                            if country_code == "PL":
+                                vat_value = 23
+                            else:
+                                vat_value = 0
+                        else:
+                            vat_value = self.vat_rates.get(country_code, "")
+                else:
+                    vat_value = -1 # VAT marża
+                
+                # Extract offer_grading from offer_data if available
                 klasa = ""
+                battery_replace = "FALSE"
+                if "offer_data" in item:
+                    offer_data = item.get("offer_data", {})
+                    klasa = offer_data.get("offer_grading", "")
+                    # Check if battery has to be replaced
+                    battery_replace = "TRUE" if offer_data.get("battery_condition", "") == "NEW" else "FALSE"
 
-            row = [
-                "FALSE",  # checkbox
-                order.get("state", ""),
-                country_code,
-                order.get("settlement_currency_code", ""),
-                order.get("settlement_total_paid", ""),
-                vat_value,
-                "",  # id_zestawu
-                klasa,  # klasa - now contains offer_grading
-                "FALSE",  # klaw 
-                battery_replace,  # bat 
-                "",  # magazyn
-                "",  # idosell_id
-                item.get("sku", ""),
-                item_name,
-                order.get("customer_email", ""),
-                shipping.get("first_name", ""),
-                shipping.get("family_name", ""),
-                shipping.get("phone_number", ""),
-                order.get("id", "")
-            ]
+                if is_iphone is False:
+                    if klasa == "B":
+                        klasa = "A 2"
+                    elif klasa == "C":
+                        klasa = "A-"
+                else:
+                    klasa = ""
+
+                info = ""
+                if multiple_items:
+                    info = f"{len(items)}szt"
+
+                
+                row = [
+                    "FALSE",  # checkbox
+                    order.get("state", ""),
+                    country_code,
+                    order.get("settlement_currency_code", ""),
+                    order.get("settlement_total_paid", ""),
+                    vat_value,
+                    info,  # id_zestawu, or info about multiple items if applicable
+                    klasa,  # klasa - now contains offer_grading
+                    "FALSE",  # klaw 
+                    battery_replace,  # bat 
+                    "",  # magazyn
+                    "",  # idosell_id
+                    item.get("sku", ""),
+                    item_name,
+                    order.get("customer_email", ""),
+                    shipping.get("first_name", ""),
+                    shipping.get("family_name", ""),
+                    shipping.get("phone_number", ""),
+                    order.get("id", "")
+                ]
+                
+                # Add this item row to the sheet_rows
+                sheet_rows.append(row)
+                
+            # Track the last order id (after processing all items in the order)
             last_id = order.get("id", "")
-            print(f"Fetched order ID: {last_id}")
-
-            sheet_rows.append(row)
+            print(f"Fetched order ID: {last_id} with {len(items)} items")
             
         return sheet_rows, last_id
 
@@ -267,7 +283,7 @@ class RefurbedAPI:
         # Get the row number of the newly added row
         last_row = len(self.orders_sheet.get_all_values())
 
-        # Create checkbox rule (TRUE/FALSE)
+        # Create checkbox rule (TRUE/FALSE)process_orders
         checkbox_rule = DataValidationRule(
             condition=BooleanCondition('BOOLEAN'),
             showCustomUi=True
@@ -341,6 +357,10 @@ class RefurbedAPI:
         
         for order in orders:
             if order['id'] not in all_ids:
+                #for testing
+                if order['customer_email'] == 'dennis.bohn@icloud.com':
+                    new_orders.append(order)
+                    continue
                 if order['state'] not in ["SHIPPED", "CANCELLED"]:
                     new_orders.append(order)
         

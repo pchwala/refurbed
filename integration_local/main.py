@@ -497,6 +497,8 @@ if __name__ == "__main__":
 """
 api = Integration()
 
+ret = api.direct_fetch_orders()
+
 print(ret)
 
 #1ZA6E2756894175582
