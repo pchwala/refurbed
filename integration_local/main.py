@@ -18,6 +18,8 @@ import time
 # ZAMOWIENIA TESTOWE
 # zamowienie 2szt na firme - ids: 338976      ref: 13410452
 
+# zamowienie 2szt dennis.bohn@icloud.com
+
 app = Flask(__name__)
 
 class Integration:
@@ -43,7 +45,7 @@ class Integration:
             self.ref_key = tokens["refurbed_token"]
         
         # Open Orders and Config worksheets
-        self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
+        self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Copy of Orders")
         self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
         self.archive_sheet = self.client.open_by_key(self.sheet_id).worksheet("Archiwum")
 
@@ -494,29 +496,6 @@ if __name__ == "__main__":
 
 """
 api = Integration()
-#ret = api.ids_push_all()
-
-#ret = api.idosell_api.add_payment(339335, 206.67)
-
-#ret = api.idosell_api.confirm_payment(339335)
-
-#ret = api.refurbed_api.change_state(order_item_id="17422299", state="SHIPPED", tracking_number="1ZA6E2756894175582")
-
-#ret = api.refurbed_api.list_orders_items(["13582047", "13582109", "13581259", "13410452"])
-
-#ret = api.refurbed_api.update_states()
-
-#ret = api.idosell_api.create_new_order(ref_id="13553126", data_row)
-
-#ret = api.refurbed_api.fetch_missing_orders()
-
-ret = api.direct_fetch_orders()
-
-#ret = api.refurbed_api.get_last_order_id()
-
-#ret = api.idosell_api.set_profit_margin("340429", "25054")
-
-#ret = api.sheet_operations.archive_orders()
 
 print(ret)
 
