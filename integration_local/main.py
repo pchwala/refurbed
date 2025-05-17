@@ -12,6 +12,7 @@ import sys
 from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
 from idosell import IdoSellAPI
+from sheet_operations import SheetOperations
 import time
 
 # ZAMOWIENIA TESTOWE
@@ -44,6 +45,7 @@ class Integration:
         # Open Orders and Config worksheets
         self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
         self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
+        self.archive_sheet = self.client.open_by_key(self.sheet_id).worksheet("Archiwum")
 
         # Initialize API classes
         self.idosell_api = IdoSellAPI(api_key=self.ids_key)
@@ -54,6 +56,12 @@ class Integration:
             sheet_id=self.sheet_id,
             orders_sheet=self.orders_sheet,
             config_sheet=self.config_sheet
+        )
+        #Initialize Google SheetOperations class
+        self.sheet_operations = SheetOperations(
+            orders_sheet=self.orders_sheet,
+            config_sheet=self.config_sheet,
+            archive_sheet=self.archive_sheet
         )
 
     def get_pending_rows(self, data=None):
@@ -389,7 +397,7 @@ class Integration:
         """
         try:
             # Use the RefurbedAPI directly
-            self.refurbed_api.fetch_orders()
+            self.refurbed_api.fetch_missing_orders()
             return {"status": "success", "message": "Orders fetched successfully"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
@@ -502,9 +510,13 @@ api = Integration()
 
 #ret = api.refurbed_api.fetch_missing_orders()
 
-#ret = api.direct_fetch_orders()
+ret = api.direct_fetch_orders()
 
-ret = api.refurbed_api.get_last_order_id()
+#ret = api.refurbed_api.get_last_order_id()
+
+#ret = api.idosell_api.set_profit_margin("340429", "25054")
+
+#ret = api.sheet_operations.archive_orders()
 
 print(ret)
 

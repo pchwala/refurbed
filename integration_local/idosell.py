@@ -158,10 +158,10 @@ class IdoSellAPI:
                 edit_order_response = self.edit_order(order_id=new_order_id, order_details=order_details)
 
                 # Add payment to the order
-                payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
+                #payment_response = self.add_payment(order_id=new_order_id, value=data_row[4])
 
                 # Confirm payment
-                payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
+                #payment_confirmation_response = self.confirm_payment(order_id=new_order_id)
 
                 # Vat marża = IPHONE
                 is_iphone = False

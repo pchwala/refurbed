@@ -377,7 +377,8 @@ class RefurbedAPI:
         
         for order in orders:
             if order['id'] not in all_ids:
-                new_orders.append(order)
+                if order['state'] not in ["SHIPPED", "CANCELLED"]:
+                    new_orders.append(order)
         
         self.logger.info(f"Found {len(new_orders)} missing orders that need to be added")
         

@@ -341,7 +341,8 @@ class RefurbedAPI:
         
         for order in orders:
             if order['id'] not in all_ids:
-                new_orders.append(order)
+                if order['state'] not in ["SHIPPED", "CANCELLED"]:
+                    new_orders.append(order)
         
         if new_orders:
             # Process orders

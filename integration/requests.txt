@@ -2,5 +2,5 @@ curl -X POST http://localhost:8080/api/process_orders \
   -H "Content-Type: application/json"
 
 
-curl -X POST http://localhost:8080/api/update_states \
+curl -X POST https://integration-staging-860977612313.europe-central2.run.app/api/push_and_sycn \
   -H "Content-Type: application/json"
