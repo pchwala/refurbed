@@ -10,6 +10,7 @@ import io
 from contextlib import redirect_stdout
 from refurbed import RefurbedAPI
 from idosell import IdoSellAPI
+from sheet_operations import SheetOperations
 import time
 
 import logging
@@ -39,6 +40,7 @@ class Integration:
         # Open Orders and Config worksheets
         self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
         self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
+        self.archive_sheet = self.client.open_by_key(self.sheet_id).worksheet("Archiwum")
 
         # Initialize API classes
         self.idosell_api = IdoSellAPI(api_key=self.ids_key)
@@ -54,6 +56,14 @@ class Integration:
         # Initialize logger
         self.logger = CloudLogger(instance_id="integration_main", log_level=logging.INFO).get_logger()
         self.logger.info("Integration class initialized successfully")
+        
+        # Initialize sheet operations class
+        self.sheet_operations = SheetOperations(
+            orders_sheet=self.orders_sheet,
+            config_sheet=self.config_sheet,
+            archive_sheet=self.archive_sheet,
+            logger=self.logger
+        )
 
     def get_pending_rows(self, data=None):
         """
@@ -468,6 +478,19 @@ def push_orders_task():
         print(error_msg)
         return False, error_msg
     
+def archive_orders_task():
+    """Task to archive completed orders"""
+    try:
+        api = Integration()
+        archived, active = api.sheet_operations.archive_completed_orders()
+        output = f"Archived {archived} completed orders and {active} active orders remain."
+        return True, output
+    except Exception as e:
+        error_msg = f"Error in archiving task: {str(e)}"
+        logging.error(error_msg)
+        return False, error_msg
+        
+    
 def _update_states_api():
     """Core function for updating order states via API
     
@@ -671,6 +694,17 @@ def api_update_and_process():
         error_msg = f"Error in combined update and process operation: {str(e)}"
         logging.error(error_msg)
         return jsonify({"status": "error", "message": error_msg}), 500
+
+@app.route("/archive_orders", methods=["POST"])
+def archive_orders():
+    """Archive completed orders and display results in the GUI"""
+    success, output = archive_orders_task()
+    if success:
+        output = f"{output}\n\nArchiwizacja ukończona pomyślnie."
+    else:
+        output = f"Błąd podczas archiwizacji: {output}"
+    
+    return render_template('index.html', output=output)
 
 
 if __name__ == "__main__":
