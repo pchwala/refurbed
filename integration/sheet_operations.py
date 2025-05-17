@@ -83,7 +83,7 @@ class SheetOperations:
                 
         else:
             self.logger.info("No completed orders to archive")
-            return None
+            return None, None
             
         # Step 2: Clear orders sheet and rewrite with active orders only
         self.orders_sheet.clear()

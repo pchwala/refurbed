@@ -24,6 +24,7 @@ COPY refurbed.py .
 COPY idosell.py .
 COPY main.py .
 COPY cloud_logging.py .
+COPY sheet_operations.py .
 
 # Copy templates directory for Flask application
 COPY templates/ ./templates/

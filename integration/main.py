@@ -482,9 +482,12 @@ def archive_orders_task():
     """Task to archive completed orders"""
     try:
         api = Integration()
-        archived, active = api.sheet_operations.archive_completed_orders()
-        output = f"Archived {archived} completed orders and {active} active orders remain."
-        return True, output
+        archived, active = api.sheet_operations.archive_orders()
+        if archived is not None:
+            output = f"Archived {archived} completed orders and {active} active orders remain."
+            return True, output
+        else:
+            return False, "No orders to archive."
     except Exception as e:
         error_msg = f"Error in archiving task: {str(e)}"
         logging.error(error_msg)
