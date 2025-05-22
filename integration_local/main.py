@@ -497,7 +497,11 @@ if __name__ == "__main__":
 """
 api = Integration()
 
-ret = api.direct_fetch_orders()
+#ret = api.direct_fetch_orders()
+
+#ret = api.refurbed_api.update_states()
+
+ret = api.refurbed_api.fetch_selected_orders(["13648484"])
 
 print(ret)
 

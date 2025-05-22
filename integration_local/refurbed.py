@@ -358,7 +358,7 @@ class RefurbedAPI:
         for order in orders:
             if order['id'] not in all_ids:
                 #for testing
-                if order['customer_email'] == 'dennis.bohn@icloud.com':
+                if order['customer_email'] == 'henri.lemettinen@tramigo.com':
                     new_orders.append(order)
                     continue
                 if order['state'] not in ["SHIPPED", "CANCELLED"]:
@@ -406,10 +406,7 @@ class RefurbedAPI:
         
         return orders
 
-    def update_order_states(self, orders):
-        # Get all order IDs and values from the sheet
-        all_rows = self.orders_sheet.get_all_values()
-        
+    def update_order_states(self, orders, all_rows):
         # Find the column index for 'r_state' and 'ID'
         header = all_rows[0]
         r_state_col = header.index("r_state") + 1  # 1-indexed for Sheets API
@@ -417,13 +414,15 @@ class RefurbedAPI:
         
         print(f"Found r_state column at index {r_state_col}, ID column at index {id_col}")
         
-        # Create a dictionary of row_number -> order_id for quick lookup
+        # Create a dictionary of order_id -> list of row_numbers for quick lookup
         order_rows = {}
         for i, row in enumerate(all_rows[1:], start=2):  # Start from 2 because row 1 is header
             if len(row) >= id_col:
                 order_id = row[id_col - 1]  # Convert back to 0-indexed for list access
                 if order_id:
-                    order_rows[order_id] = i
+                    if order_id not in order_rows:
+                        order_rows[order_id] = []
+                    order_rows[order_id].append(i)
         
         # Keep track of updates to apply in batch
         updates = []
@@ -434,12 +433,12 @@ class RefurbedAPI:
             state = order.get("state", "")
             
             if order_id in order_rows:
-                row_num = order_rows[order_id]
-                updates.append({
-                    'range': f"{chr(64 + r_state_col)}{row_num}",  # Convert column index to letter (A, B, C...)
-                    'values': [[state]]
-                })
-                print(f"Will update order {order_id} with state {state} at row {row_num}")
+                row_nums = order_rows[order_id]
+                for row_num in row_nums:
+                    updates.append({
+                        'range': f"{chr(64 + r_state_col)}{row_num}",  # Convert column index to letter (A, B, C...)
+                        'values': [[state]]
+                    })
         
         if updates:
             # Apply all updates in batch
@@ -551,8 +550,15 @@ class RefurbedAPI:
             for row in all_rows[1:]:
                 if len(row) > id_col_idx and row[id_col_idx] and row[id_col_idx] != "":
                     order_ids.append(row[id_col_idx])
-            
+                    
+            # Remove duplicates
+            order_ids = list(set(order_ids))
+            #sort order_ids
+            order_ids.sort()
             print(f"Found {len(order_ids)} order IDs in the sheet to update")
+            
+            # for testing
+            order_ids = ["13620810", "13629273"]
             
             if not order_ids:
                 print("No orders found in the sheet to update")
@@ -585,7 +591,7 @@ class RefurbedAPI:
             print(f"Successfully fetched total of {len(all_orders)} orders from Refurbed API for updating")
             
             # Update order states in the Google Sheet
-            updated = self.update_order_states(all_orders)
+            updated = self.update_order_states(all_orders, all_rows)
             
             # Config batch update to delete SHIPPED orders
             batch_update = []
