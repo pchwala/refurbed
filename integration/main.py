@@ -337,6 +337,18 @@ class Integration:
                                 continue
                         success_count += 1
                         continue
+                    
+                    else:
+                        # If order is not finished, check if there is a tracking number and send it and set state to ACCEPTED(no change)
+                        if tracking_number:
+                            items = self.refurbed_api.list_orders_items([refurbed_id])
+                            for item in items:
+                                result = self.refurbed_api.change_state(order_item_id=item, state="ACCEPTED", tracking_number=tracking_number)
+                                if result is False:
+                                    failed_count += 1
+                                    continue
+                            success_count += 1
+                            continue
 
                 failed_count += 1
                 failed_orders.append(idosell_id)
