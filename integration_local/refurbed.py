@@ -582,7 +582,7 @@ class RefurbedAPI:
                     # Check if the current row contains the order ID in column D (index 4)
                     if len(row) > col_ref_id and row[col_ref_id] == order_id:
                         # If the order has been shipped, remove its tracking information
-                        if state == "SHIPPED":
+                        if state == "SHIPPED" or state == "CANCELLED":
                             # Clear column D (IdoSell order ID) in Config sheet
                             batch_update.append({
                                 'range': f'D{i}',
@@ -603,4 +603,3 @@ class RefurbedAPI:
                 print(f"Updated {matched_count} rows in Orders sheet with IdoSell IDs")
             
             return updated
-

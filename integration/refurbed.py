@@ -545,8 +545,8 @@ class RefurbedAPI:
             for i, row in enumerate(config_rows[1:], start=2):
                 # Check if the current row contains the order ID in column D (index 4)
                 if len(row) > col_ref_id and row[col_ref_id] == order_id:
-                    # If the order has been shipped, remove its tracking information
-                    if state == "SHIPPED":
+                    # If the order has been shipped or cancelled, remove its tracking information
+                    if state == "SHIPPED" or state == "CANCELLED":
                         # Clear column D (IdoSell order ID) in Config sheet
                         batch_update.append({
                             'range': f'D{i}',
@@ -560,11 +560,11 @@ class RefurbedAPI:
                         })
                         matched_count += 1  # Increment counter of updated rows
                         break  # Stop searching after finding the matching row
-                    
+    
         # Execute batch update if there are matches
         if batch_update:
             self.config_sheet.batch_update(batch_update)
-            self.logger.info(f"Updated {matched_count} rows in Config sheet by clearing tracking information for SHIPPED orders")
+            self.logger.info(f"Updated {matched_count} rows in Config sheet by clearing tracking information for SHIPPED or CANCELLED orders")
         
         return updated
 

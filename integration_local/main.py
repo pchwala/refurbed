@@ -529,7 +529,9 @@ api = Integration()
 
 #ret = api.sheet_operations.archive_orders()
 
-ret = api.process_orders()
+#ret = api.process_orders()
+
+ret = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
 
 print(ret)
 
