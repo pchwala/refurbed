@@ -489,7 +489,9 @@ class IdoSellAPI:
         # Check each order in IdoSell and update if cancelled
         checked_count = 0
         updated_count = 0
+        removed_count = 0
         batch_update = []
+        config_batch_update = []
         
         for refurbed_id, idosell_id in order_pairs:
             checked_count += 1
@@ -516,19 +518,43 @@ class IdoSellAPI:
                                 'values': [["CANCELLED"]]
                             })
                             updated_count += 1
+                            
+                            # Clear the pair from Config sheet
+                            # Find the row in Config sheet that contains this refurbed_id
+                            for i, row in enumerate(config_data[1:], start=2):
+                                if len(row) > 3 and row[3] == refurbed_id:
+                                    # Clear column D (Refurbed ID) in Config sheet
+                                    config_batch_update.append({
+                                        'range': f'D{i}',
+                                        'values': [[""]]
+                                    })
+                                    
+                                    # Clear column E (IdoSell ID) in Config sheet
+                                    config_batch_update.append({
+                                        'range': f'E{i}',
+                                        'values': [[""]]
+                                    })
+                                    removed_count += 1
+                                    break
             except Exception as e:
                 print(f"Error checking order {idosell_id}: {str(e)}")
                 continue
         
-        # Execute batch update if there are any updates
+        # Execute batch updates if there are any updates
         if batch_update:
             orders_sheet.batch_update(batch_update)
             print(f"Updated {updated_count} orders to CANCELLED state in Orders sheet")
         else:
             print("No cancelled orders found")
+            
+        # Execute config batch update if any pairs to remove
+        if config_batch_update:
+            config_sheet.batch_update(config_batch_update)
+            print(f"Removed {removed_count} cancelled order pairs from Config sheet")
         
         return {
             "checked_count": checked_count,
-            "updated_count": updated_count
+            "updated_count": updated_count,
+            "removed_count": removed_count
         }
 

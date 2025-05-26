@@ -533,6 +533,7 @@ api = Integration()
 
 ret = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
 
+
 print(ret)
 
 #1ZA6E2756894175582
