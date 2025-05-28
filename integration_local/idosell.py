@@ -439,3 +439,122 @@ class IdoSellAPI:
             return response.json()
         else:
             raise Exception(f"Error confirming payment: {response.status_code}, {response.text}")
+        
+    
+    def process_cancelled(self, config_sheet, orders_sheet):
+        """
+        Checks if orders in IdoSell are cancelled and updates the corresponding orders in Refurbed.
+        
+        Args:
+            idosell_api (IdoSellAPI): Instance of IdoSellAPI for checking order status
+            
+        Returns:
+            dict: Dictionary containing counts of checked and updated orders
+        """
+        
+        config_data = config_sheet.get_all_values()
+        orders_data = orders_sheet.get_all_values()
+               
+        # Find the column index for 'r_state' and 'ID' in orders sheet
+        header = orders_data[0]
+        r_state_col = header.index("r_state") + 1  # 1-indexed for Sheets API
+        id_col = header.index("ID") + 1  # 1-indexed for Sheets API
+        
+        print(f"Found r_state column at index {r_state_col}, ID column at index {id_col}")
+        
+        # Create a dictionary mapping Refurbed IDs to row numbers in Orders sheet
+        refurbed_id_to_row = {}
+        for i, row in enumerate(orders_data[1:], start=2):  # Start from 2 because row 1 is header
+            if len(row) >= id_col - 1:  # Convert back to 0-indexed for list access
+                refurbed_id = row[id_col - 1]  # Convert back to 0-indexed for list access
+                if refurbed_id:
+                    refurbed_id_to_row[refurbed_id] = i
+        
+        print(f"Found {len(refurbed_id_to_row)} order IDs in Orders sheet")
+        
+        # Extract Refurbed and IdoSell order ID pairs from Config sheet
+        # Config sheet has refurbed_id in column D (index 3) and idosell_id in column E (index 4)
+        order_pairs = []
+        for row in config_data[1:]:  # Skip header row
+            if len(row) >= 5:  # Ensure row has enough columns
+                refurbed_id = row[3]  # Column D (0-indexed)
+                idosell_id = row[4]   # Column E (0-indexed)
+                
+                # Only include pairs where both IDs are present
+                if refurbed_id and idosell_id:
+                    order_pairs.append((refurbed_id, idosell_id))
+        
+        print(f"Found {len(order_pairs)} RefurbedID-IdoSellID pairs in Config sheet")
+        
+        # Check each order in IdoSell and update if cancelled
+        checked_count = 0
+        updated_count = 0
+        removed_count = 0
+        batch_update = []
+        config_batch_update = []
+        
+        for refurbed_id, idosell_id in order_pairs:
+            checked_count += 1
+            
+            # Get order from IdoSell
+            try:
+                order_data = self.get_order(order_id=idosell_id)
+                
+                # Check if order exists and has details
+                if order_data and 'Results' in order_data and order_data['Results']:
+                    # Check if order is cancelled
+                    order_status = order_data['Results'][0]['orderDetails']['orderStatus']
+                    
+                    if order_status == "canceled":
+                        print(f"IdoSell order {idosell_id} (Refurbed ID: {refurbed_id}) is cancelled")
+                        
+                        # Find the corresponding row in Orders sheet
+                        if refurbed_id in refurbed_id_to_row:
+                            row_num = refurbed_id_to_row[refurbed_id]
+                            
+                            # Add update to batch for r_state column
+                            batch_update.append({
+                                'range': f"{chr(64 + r_state_col)}{row_num}",  # Convert column index to letter (A, B, C...)
+                                'values': [["CANCELLED"]]
+                            })
+                            updated_count += 1
+                            
+                            # Clear the pair from Config sheet
+                            # Find the row in Config sheet that contains this refurbed_id
+                            for i, row in enumerate(config_data[1:], start=2):
+                                if len(row) > 3 and row[3] == refurbed_id:
+                                    # Clear column D (Refurbed ID) in Config sheet
+                                    config_batch_update.append({
+                                        'range': f'D{i}',
+                                        'values': [[""]]
+                                    })
+                                    
+                                    # Clear column E (IdoSell ID) in Config sheet
+                                    config_batch_update.append({
+                                        'range': f'E{i}',
+                                        'values': [[""]]
+                                    })
+                                    removed_count += 1
+                                    break
+            except Exception as e:
+                print(f"Error checking order {idosell_id}: {str(e)}")
+                continue
+        
+        # Execute batch updates if there are any updates
+        if batch_update:
+            orders_sheet.batch_update(batch_update)
+            print(f"Updated {updated_count} orders to CANCELLED state in Orders sheet")
+        else:
+            print("No cancelled orders found")
+            
+        # Execute config batch update if any pairs to remove
+        if config_batch_update:
+            config_sheet.batch_update(config_batch_update)
+            print(f"Removed {removed_count} cancelled order pairs from Config sheet")
+        
+        return {
+            "checked_count": checked_count,
+            "updated_count": updated_count,
+            "removed_count": removed_count
+        }
+

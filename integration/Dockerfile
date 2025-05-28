@@ -33,4 +33,4 @@ COPY templates/ ./templates/
 EXPOSE 8080
 
 # Command to run the application
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "main:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "--timeout", "0", "main:app"]
