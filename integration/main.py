@@ -446,33 +446,6 @@ class Integration:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def set_states_to_accepted(self, created_orders):
-        """
-        Update the state of all items in the provided orders to 'ACCEPTED'.
-        
-        Args:
-            created_orders (list): A list of order dictionaries, each containing 
-                                  a 'ref_id' key that references the order in the Refurbed system.
-        
-        Note:
-            This method introduces a 0.2 second delay between API calls to avoid rate limiting,
-            as batch updates don't seem to work properly.
-        """
-        import time
-        
-        ref_orders = []
-        for order in created_orders:
-            ref_orders.append(order["ref_id"])
-
-        self.logger.info(f"Setting states to ACCEPTED for {len(ref_orders)} orders")
-        items_list = self.refurbed_api.list_orders_items(ref_orders)
-
-        for item in items_list:
-            self.refurbed_api.change_state(order_item_id=item, state="ACCEPTED")
-            # Add 1/5 second delay between API calls to avoid rate limiting
-            # Batch updates don't work properly
-            time.sleep(0.2)
-
 
 def push_orders_task():
     """Task to push orders to IdoSell that runs on a schedule"""
@@ -647,6 +620,35 @@ def process_orders():
         error_msg = f"Błąd podczas przetwarzania zamówień: {str(e)}"
         logging.error(error_msg)
         return render_template('index.html', output=error_msg)
+
+
+@app.route("/process_cancelled", methods=["POST"])
+def process_cancelled():
+    """Process cancelled orders and update their status"""
+    try:
+        # Create an integration instance
+        api = Integration()
+        
+        # Process cancelled orders using the IdoSell API method
+        result = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
+        
+        # Format a detailed success message
+        output = f"Wyniki wyszukiwania anulowanych:\n"
+        output += f"- Sprawdzono zamówień: {result.get('checked_count', 0)}\n"
+        output += f"- Zaktualizowano do CANCELLED: {result.get('updated_count', 0)}\n"
+        output += f"- Usunięto z pliku config: {result.get('removed_count', 0)}"
+        
+        if result.get('updated_count', 0) > 0:
+            output += "\n\nZamówienia anulowane zostały oznaczone jako CANCELLED."
+        else:
+            output += "\n\nNie znaleziono anulowanych zamówień."
+        
+        return render_template('index.html', output=output)
+    except Exception as e:
+        error_msg = f"Błąd podczas sprawdzania anulowanych zamówień: {str(e)}"
+        logging.error(error_msg)
+        return render_template('index.html', output=error_msg)
+
 
 @app.route("/api/fetch_orders", methods=["POST"])
 def api_fetch_orders():

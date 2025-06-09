@@ -125,6 +125,9 @@
             <form action="/process_orders" method="post" class="tooltip">
                 <button type="submit" class="button orange" data-tooltip="Manualna aktualizacja wykonanych zamówień w Refurbed - status i link trackingowy">Aktualizuj wysłane</button>
             </form>
+            <form action="/process_cancelled" method="post" class="tooltip">
+                <button type="submit" class="button orange" data-tooltip="Wyszukaj zamówienia anulowane w IdoSell i oznacz w pliku jako CANCELLED">Aktualizuj anulowane</button>
+            </form>
         </div>
         <div class="output">{{ output }}</div>
         <div class="footer">

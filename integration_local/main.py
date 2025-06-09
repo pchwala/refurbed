@@ -45,7 +45,7 @@ class Integration:
             self.ref_key = tokens["refurbed_token"]
         
         # Open Orders and Config worksheets
-        self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Copy of Orders")
+        self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
         self.config_sheet = self.client.open_by_key(self.sheet_id).worksheet("Config")
         self.archive_sheet = self.client.open_by_key(self.sheet_id).worksheet("Archiwum")
 
@@ -510,7 +510,9 @@ api = Integration()
 
 #ret = api.direct_fetch_orders()
 
-ret = api.ids_push_all()
+#ret = api.ids_push_all()
+
+ret = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
 
 print(ret)
 
