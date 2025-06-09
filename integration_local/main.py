@@ -490,7 +490,7 @@ def update_states():
 def push_orders_endpoint():
     """API endpoint for programmatic access"""
     try:
-        success, output = push_orders_task()
+        success, output = push_orders_task() 
         if success:
             return jsonify({"message": "Orders push completed successfully.", "details": output}), 200
         else:
@@ -510,25 +510,7 @@ api = Integration()
 
 #ret = api.direct_fetch_orders()
 
-#ret = api.refurbed_api.update_states()
-
-#ret = api.idosell_api.create_new_order(ref_id="13553126", data_row)
-
-#ret = api.refurbed_api.fetch_missing_orders()
-
-#ret = api.direct_fetch_orders()
-
-#ret = api.refurbed_api.get_last_order_id()
-
-#ret = api.idosell_api.set_profit_margin("340429", "25054")
-
-#ret = api.sheet_operations.archive_orders()
-
-#ret = api.process_orders()
-
-ret = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
-
-ret = api.refurbed_api.fetch_selected_orders(["13648484"])
+ret = api.ids_push_all()
 
 print(ret)
 

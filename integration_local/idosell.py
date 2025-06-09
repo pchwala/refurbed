@@ -116,7 +116,20 @@ class IdoSellAPI:
         Create orders in IdoSell using the provided data.
         """
         created_orders = []
+        
+        # Filter pending_rows to keep only unique 'id_zestawu' values
+        seen_id_zestawu = set()
+        filtered_pending_rows = {}
+        
         for ref_id, data_row in pending_rows.items():
+            id_zestawu = data_row[6]  # 'id_zestawu' is at index 6
+            if id_zestawu not in seen_id_zestawu:
+                seen_id_zestawu.add(id_zestawu)
+                filtered_pending_rows[ref_id] = data_row
+        
+        print(f"Found duplicates in pending rows, run task again" )
+        
+        for ref_id, data_row in filtered_pending_rows.items():
             # Create a new order
             try:
                 # Find the order with matching id in the list
