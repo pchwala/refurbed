@@ -510,9 +510,9 @@ api = Integration()
 
 #ret = api.direct_fetch_orders()
 
-#ret = api.ids_push_all()
+ret = api.ids_push_all()
 
-ret = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
+#ret = api.idosell_api.process_cancelled(api.config_sheet, api.orders_sheet)
 
 print(ret)
 
