@@ -268,9 +268,12 @@ class IdoSellAPI:
         shipping_address = ref_data['shipping_address']
         invoice_address = ref_data['invoice_address']
         
+        invoice_supplement = invoice_address.get('supplement', '')
+        shipping_supplement = shipping_address.get('supplement', '')
+        
         client_data['clientFirstName'] = invoice_address['first_name']
         client_data['clientLastName'] = invoice_address['family_name']
-        client_data['clientStreet'] = invoice_address['street_name'] + ' ' + invoice_address['house_no'] + ' ' + invoice_address['supplement']
+        client_data['clientStreet'] = invoice_address['street_name'] + ' ' + invoice_address['house_no'] + ' ' + invoice_supplement
         client_data['clientZipCode'] = invoice_address['post_code']
         client_data['clientCity'] = invoice_address['town']
         client_data['clientCountry'] = self.country_names[invoice_address['country_code']]
@@ -293,7 +296,7 @@ class IdoSellAPI:
         delivery_address = order['clientDeliveryAddress']
         delivery_address['clientDeliveryAddressFirstName'] = shipping_address['first_name']
         delivery_address['clientDeliveryAddressLastName'] = shipping_address['family_name']
-        delivery_address['clientDeliveryAddressStreet'] = shipping_address['street_name'] + ' ' + shipping_address['house_no'] + ' ' + shipping_address['supplement']
+        delivery_address['clientDeliveryAddressStreet'] = shipping_address['street_name'] + ' ' + shipping_address['house_no'] + ' ' + shipping_supplement
         delivery_address['clientDeliveryAddressZipCode'] = shipping_address['post_code']
         delivery_address['clientDeliveryAddressCity'] = shipping_address['town']
         delivery_address['clientDeliveryAddressCountry'] = self.country_names[shipping_address['country_code']]
