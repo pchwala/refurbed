@@ -127,7 +127,8 @@ class IdoSellAPI:
                 seen_id_zestawu.add(id_zestawu)
                 filtered_pending_rows[ref_id] = data_row
         
-        print(f"Found duplicates in pending rows, run task again" )
+        if len(filtered_pending_rows) < len(pending_rows):
+            print(f"Found duplicates in pending rows, run task again" )
         
         for ref_id, data_row in filtered_pending_rows.items():
             # Create a new order
