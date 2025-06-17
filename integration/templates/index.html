@@ -1,139 +1,175 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Menadżer zamówień Refurbed</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #242e34;
-            color: #e0e0e0;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: #2d3940;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        }
-        h1 {
-            color: #ffffff;
-            margin-top: 0;
-        }
-        .button {
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 10px 5px 10px 0;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        .button:hover {
-            background-color: #45a049;
-        }
-        .button.blue {
-            background-color: #3a7ca5;
-        }
-        .button.blue:hover {
-            background-color: #2d6384;
-        }
-        .button.orange {
-            background-color: #d67d3e;
-        }
-        .button.orange:hover {
-            background-color: #bf6c32;
-        }
-        .output {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #1c2428;
-            border: 1px solid #354249;
-            border-radius: 4px;
-            min-height: 200px;
-            max-height: 500px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-family: monospace;
-            color: #b0b0b0;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-        }
-        .footer {
-            margin-top: 20px;
-            text-align: right;
-            color: #808080;
-            font-size: 12px;
-        }
-        /* Tooltip styling */
-        .tooltip {
-            position: relative;
-        }
-        .tooltip button::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #1c2428;
-            color: #e0e0e0;
-            text-align: center;
-            border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 14px;
-            white-space: nowrap;
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            z-index: 1;
-            border: 1px solid #354249;
-        }
-        .tooltip button:hover::after {
-            visibility: visible;
-            opacity: 1;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #242e34;
+        color: #e0e0e0;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #2d3940;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #ffffff;
+        margin-top: 0;
+      }
+      .button {
+        background-color: #4caf50;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 10px 5px 10px 0;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .button:hover {
+        background-color: #45a049;
+      }
+      .button.blue {
+        background-color: #3a7ca5;
+      }
+      .button.blue:hover {
+        background-color: #2d6384;
+      }
+      .button.orange {
+        background-color: #d67d3e;
+      }
+      .button.orange:hover {
+        background-color: #bf6c32;
+      }
+      .output {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #1c2428;
+        border: 1px solid #354249;
+        border-radius: 4px;
+        min-height: 200px;
+        max-height: 500px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font-family: monospace;
+        color: #b0b0b0;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+      }
+      .footer {
+        margin-top: 20px;
+        text-align: right;
+        color: #808080;
+        font-size: 12px;
+      }
+      /* Tooltip styling */
+      .tooltip {
+        position: relative;
+      }
+      .tooltip button::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #1c2428;
+        color: #e0e0e0;
+        text-align: center;
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 14px;
+        white-space: nowrap;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.3s;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+        border: 1px solid #354249;
+      }
+      .tooltip button:hover::after {
+        visibility: visible;
+        opacity: 1;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>Menadżer zamówień Refurbed-IdoSell</h1>
-        <p style="color: red; font-weight: bold;">STAGING BRANCH.</p>
-        <div class="button-group">
-            <form action="/run_task" method="post" class="tooltip">
-                <button type="submit" class="button" data-tooltip="Wyślij zamówienia oznaczone checkboxem do IdoSell">Wyślij do IdoSell</button>
-            </form>
-            <form action="/fetch_orders" method="post" class="tooltip">
-                <button type="submit" class="button blue" data-tooltip="Pobierz nowe zamówienia z Refurbed do arkusza google">Pobierz nowe</button>
-            </form>
-            <form action="/archive_orders" method="post" class="tooltip">
-                <button type="submit" class="button orange" data-tooltip="Archiwizuj wykonane zamówienia">Archiwizuj</button>
-            </form>
-        </div>
-        <div class="button-group" style="margin-top: 10px;">
-            <form action="/update_states" method="post" class="tooltip">
-                <button type="submit" class="button orange" data-tooltip="Manualna synchronizacja stanów zamówień w pliku z Refurbed">Aktualizuj stany</button>
-            </form>
-            <form action="/process_orders" method="post" class="tooltip">
-                <button type="submit" class="button orange" data-tooltip="Manualna aktualizacja wykonanych zamówień w Refurbed - status i link trackingowy">Aktualizuj wysłane</button>
-            </form>
-            <form action="/process_cancelled" method="post" class="tooltip">
-                <button type="submit" class="button orange" data-tooltip="Wyszukaj zamówienia anulowane w IdoSell i oznacz w pliku jako CANCELLED">Aktualizuj anulowane</button>
-            </form>
-        </div>
-        <div class="output">{{ output }}</div>
-        <div class="footer">
-            © 2025 Przemysław Chwała<br>
-            Vedion.pl
-        </div>
+      <h1>Menadżer zamówień Refurbed-IdoSell</h1>
+      <p style="color: green; font-weight: bold">WERSJA STABILNA.</p>
+      <div class="button-group">
+        <form action="/run_task" method="post" class="tooltip">
+          <button
+            type="submit"
+            class="button"
+            data-tooltip="Wyślij zamówienia oznaczone checkboxem do IdoSell"
+          >
+            Wyślij do IdoSell
+          </button>
+        </form>
+        <form action="/fetch_orders" method="post" class="tooltip">
+          <button
+            type="submit"
+            class="button blue"
+            data-tooltip="Pobierz nowe zamówienia z Refurbed do arkusza google"
+          >
+            Pobierz nowe
+          </button>
+        </form>
+        <form action="/archive_orders" method="post" class="tooltip">
+          <button
+            type="submit"
+            class="button orange"
+            data-tooltip="Archiwizuj wykonane zamówienia"
+          >
+            Archiwizuj
+          </button>
+        </form>
+      </div>
+      <div class="button-group" style="margin-top: 10px">
+        <form action="/update_states" method="post" class="tooltip">
+          <button
+            type="submit"
+            class="button orange"
+            data-tooltip="Manualna synchronizacja stanów zamówień w pliku z Refurbed"
+          >
+            Aktualizuj stany
+          </button>
+        </form>
+        <form action="/process_orders" method="post" class="tooltip">
+          <button
+            type="submit"
+            class="button orange"
+            data-tooltip="Manualna aktualizacja wykonanych zamówień w Refurbed - status i link trackingowy"
+          >
+            Aktualizuj wysłane
+          </button>
+        </form>
+        <form action="/process_cancelled" method="post" class="tooltip">
+          <button
+            type="submit"
+            class="button orange"
+            data-tooltip="Wyszukaj zamówienia anulowane w IdoSell i oznacz w pliku jako CANCELLED"
+          >
+            Aktualizuj anulowane
+          </button>
+        </form>
+      </div>
+      <div class="output">{{ output }}</div>
+      <div class="footer">
+        © 2025 Przemysław Chwała<br />
+        Vedion.pl
+      </div>
     </div>
-</body>
+  </body>
 </html>
