@@ -524,6 +524,23 @@ class IdoSellAPI:
                     
                     if order_status == "canceled":
                         print(f"IdoSell order {idosell_id} (Refurbed ID: {refurbed_id}) is cancelled")
+                        # Clear the pair from Config sheet
+                        # Find the row in Config sheet that contains this refurbed_id
+                        for i, row in enumerate(config_data[1:], start=2):
+                            if len(row) > 3 and row[3] == refurbed_id:
+                                # Clear column D (Refurbed ID) in Config sheet
+                                config_batch_update.append({
+                                    'range': f'D{i}',
+                                    'values': [[""]]
+                                })
+                                
+                                # Clear column E (IdoSell ID) in Config sheet
+                                config_batch_update.append({
+                                    'range': f'E{i}',
+                                    'values': [[""]]
+                                })
+                                removed_count += 1
+                                break
                         
                         # Find the corresponding row in Orders sheet
                         if refurbed_id in refurbed_id_to_row:
@@ -535,24 +552,6 @@ class IdoSellAPI:
                                 'values': [["CANCELLED"]]
                             })
                             updated_count += 1
-                            
-                            # Clear the pair from Config sheet
-                            # Find the row in Config sheet that contains this refurbed_id
-                            for i, row in enumerate(config_data[1:], start=2):
-                                if len(row) > 3 and row[3] == refurbed_id:
-                                    # Clear column D (Refurbed ID) in Config sheet
-                                    config_batch_update.append({
-                                        'range': f'D{i}',
-                                        'values': [[""]]
-                                    })
-                                    
-                                    # Clear column E (IdoSell ID) in Config sheet
-                                    config_batch_update.append({
-                                        'range': f'E{i}',
-                                        'values': [[""]]
-                                    })
-                                    removed_count += 1
-                                    break
             except Exception as e:
                 print(f"Error checking order {idosell_id}: {str(e)}")
                 continue
