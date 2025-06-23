@@ -239,9 +239,6 @@ class RefurbedAPI:
                     klasa = ""
 
                 info = ""
-                if multiple_items:
-                    info = f"{len(items)}szt"
-
                 
                 row = [
                     "FALSE",  # checkbox
@@ -264,6 +261,11 @@ class RefurbedAPI:
                     shipping.get("phone_number", ""),
                     order.get("id", "")
                 ]
+                
+                if multiple_items:
+                    row[6] = f"{len(items)}szt"
+                    sheet_rows.append(row)
+                    break  # Skip to next order if multiple items, only add one row for the order
                 
                 # Add this item row to the sheet_rows
                 sheet_rows.append(row)
